@@ -1,0 +1,32 @@
+/**
+ * Prettier Configuration for To-Do Web App
+ * 
+ * Follows project conventions:
+ * - 2-space indentation
+ * - Single quotes
+ * - Semicolons
+ * - Trailing commas
+ * - 100 character line length
+ */
+
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "doubleQuote": false,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "embeddedLanguageFormatting": "auto",
+  "htmlWhitespaceSensitivity": "css",
+  "jsxSingleQuote": true,
+  "plugins": ["prettier-plugin-svelte", "prettier-plugin-tailwindcss"],
+  "svelteSortOrder": "options-scripts-markup-styles",
+  "svelteStrictMode": true,
+  "svelteBracketNewLine": true,
+  "svelteIndentScriptAndStyle": true
+}

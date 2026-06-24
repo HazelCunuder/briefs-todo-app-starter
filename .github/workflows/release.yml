@@ -1,0 +1,266 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+*
+      - v[0-9]+.[0-9]+.[0-9]+*-[a-zA-Z0-9-]+.*
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (e.g., v1.0.0)
+        required: true
+        type: string
+      dry-run:
+        description: Dry run (no actual release)
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG=${{ inputs.version }}
+          else
+            TAG=${{ github.ref_name }}
+          fi
+          
+          # Remove v prefix
+          VERSION=${TAG#v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          
+          # Check if prerelease
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9-]+ ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Detected version: ${VERSION}"
+          echo "Is prerelease: ${{ steps.version.outputs.is_prerelease }}"
+
+      - name: Generate changelog
+        id: changelog
+        uses: metcalfc/changelog-generator@v4.1.0
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+          sinceTag: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.repository.default_branch == 'main' && '0.0.0' || '0.0.0') || '' }}
+          outputFile: CHANGELOG_TEMP.md
+
+      - name: Read changelog
+        id: read-changelog
+        run: |
+          if [ -f CHANGELOG_TEMP.md ]; then
+            CHANGELOG=$(cat CHANGELOG_TEMP.md)
+          else
+            CHANGELOG="No changelog generated"
+          fi
+          # Escape newlines for output
+          CHANGELOG="${CHANGELOG//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          echo "changelog=${CHANGELOG}" >> $GITHUB_OUTPUT
+
+      - name: Validate version in pyproject.toml
+        run: |
+          PY_VERSION=$(grep -E "^version\s*=" api/pyproject.toml | sed 's/.*= *"//;s/"//')
+          if [ "$PY_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Version mismatch: pyproject.toml has ${PY_VERSION}, tag is ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+
+  build-release:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: validate-release
+    outputs:
+      api_image: ${{ steps.tag.outputs.api_image }}
+      web_image: ${{ steps.tag.outputs.web_image }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        id: api-build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:${{ needs.validate-release.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:${{ needs.validate-release.outputs.is_prerelease == 'true' && 'next' || 'stable' }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.validate-release.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Build and push Web image
+        id: web-build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web:${{ needs.validate-release.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web:${{ needs.validate-release.outputs.is_prerelease == 'true' && 'next' || 'stable' }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.validate-release.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Set output tags
+        id: tag
+        run: |
+          echo "api_image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:${{ needs.validate-release.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "web_image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web:${{ needs.validate-release.outputs.version }}" >> $GITHUB_OUTPUT
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-release]
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download changelog
+        run: |
+          # The changelog was generated in validate-release job
+          # We'll recreate it here
+          echo "${{ needs.validate-release.outputs.changelog }}" > CHANGELOG.md
+
+      - name: Create Release
+        id: create-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.validate-release.outputs.version }}
+          name: Release v${{ needs.validate-release.outputs.version }}
+          body: |
+            ## Changelog
+            
+            ${{ needs.validate-release.outputs.changelog }}
+            
+            ## Artifacts
+            
+            - **API Image**: `${{ needs.build-release.outputs.api_image }}`
+            - **Web Image**: `${{ needs.build-release.outputs.web_image }}`
+            
+            ## Docker Pull Commands
+            
+            ```bash
+            docker pull ${{ needs.build-release.outputs.api_image }}
+            docker pull ${{ needs.build-release.outputs.web_image }}
+            ```
+          prerelease: ${{ needs.validate-release.outputs.is_prerelease == 'true' }}
+          draft: false
+          make_latest: ${{ needs.validate-release.outputs.is_prerelease == 'false' }}
+
+      - name: Output release URL
+        run: |
+          echo "Release created: ${{ steps.create-release.outputs.url }}"
+
+  publish-package:
+    name: Publish Python Package
+    runs-on: ubuntu-latest
+    needs: [validate-release, create-release]
+    if: needs.validate-release.outputs.is_prerelease == 'false'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build Python package
+        working-directory: api
+        run: |
+          python -m build
+
+      - name: Publish to PyPI
+        if: success() && github.event_name != 'workflow_dispatch' || inputs.dry-run != 'true'
+        working-directory: api
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          twine upload dist/*
+
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [create-release, publish-package]
+    if: always()
+    steps:
+      - name: Generate release summary
+        run: |
+          echo "# Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Release v${{ needs.validate-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ needs.create-release.result == 'success' && '✅ Released' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ needs.validate-release.outputs.is_prerelease == 'true' && 'Pre-release' || 'Stable' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Image**: ${{ needs.build-release.outputs.api_image }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Image**: ${{ needs.build-release.outputs.web_image }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PyPI**: ${{ needs.publish-package.result == 'success' && '✅ Published' || (needs.publish-package.result == 'skipped' && '⏭️ Skipped' || '❌ Failed') }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Changelog" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.validate-release.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY
+
+  cleanup:
+    name: Cleanup Temporary Files
+    runs-on: ubuntu-latest
+    needs: [create-release, publish-package]
+    if: always()
+    steps:
+      - name: Remove temporary changelog
+        run: |
+          rm -f CHANGELOG_TEMP.md CHANGELOG.md

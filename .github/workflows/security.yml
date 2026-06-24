@@ -1,0 +1,298 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+    tags: [v*]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      full-scan:
+        description: Run full security scan
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  trivy-fs-scan:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.29
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+          vuln-type: os,library
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs-results.sarif
+
+  dependabot-scan:
+    name: Dependabot Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Dependabot security scan
+        uses: dependabot/dependabot-core@v0.280.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          directory: "/"
+          package-manager: "pip"
+          scan-type: "security"
+
+  snyk-scan:
+    name: Snyk Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: api
+        run: |
+          pip install -r requirements.txt 2>/dev/null || true
+
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/python@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  api-security-check:
+    name: API Security Check
+    runs-on: ubuntu-latest
+    needs: [secret-scan, trivy-fs-scan]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install security dependencies
+        run: |
+          pip install bandit safety
+
+      - name: Run Bandit security linter
+        working-directory: api
+        run: |
+          bandit -r . -f json -o bandit-results.json || true
+          bandit -r . -ll -ii
+
+      - name: Run Safety check
+        working-directory: api
+        run: |
+          safety check --json --output safety-results.json 2>/dev/null || true
+          safety check 2>/dev/null || true
+
+      - name: Check for security headers in API
+        run: |
+          echo "Checking API security configuration..."
+          grep -r "CORS" api/ || echo "⚠️ CORS middleware not found"
+          grep -r "rate_limit" api/ || echo "⚠️ Rate limiting not found"
+          grep -r "helmet\|SecurityMiddleware" api/ || echo "⚠️ Security headers not found"
+
+  web-security-check:
+    name: Web Security Check
+    runs-on: ubuntu-latest
+    needs: [secret-scan, trivy-fs-scan]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install web dependencies
+        working-directory: web
+        run: |
+          npm ci 2>/dev/null || true
+
+      - name: Run npm audit
+        working-directory: web
+        run: |
+          npm audit --audit-level=high --json > npm-audit-results.json 2>/dev/null || true
+          npm audit --audit-level=high 2>/dev/null || true
+
+      - name: Check for security issues in package.json
+        working-directory: web
+        run: |
+          echo "Checking web security configuration..."
+          grep -q "http-only" src/ || echo "⚠️ Cookie security not configured"
+          grep -q "secure:" src/ || echo "⚠️ Secure flag not found"
+          grep -q "sameSite" src/ || echo "⚠️ SameSite not configured"
+
+  container-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    needs: [secret-scan]
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: api/Dockerfile
+          tags: todo-api-scan:latest
+          push: false
+          load: true
+
+      - name: Build Web image for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          tags: todo-web-scan:latest
+          push: false
+          load: true
+
+      - name: Run Trivy on API container
+        uses: aquasecurity/trivy-action@v0.29
+        with:
+          image-ref: todo-api-scan:latest
+          format: sarif
+          output: trivy-api-container.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Run Trivy on Web container
+        uses: aquasecurity/trivy-action@v0.29
+        with:
+          image-ref: todo-web-scan:latest
+          format: sarif
+          output: trivy-web-container.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload API container scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-api-container.sarif
+
+      - name: Upload Web container scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-web-container.sarif
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [secret-scan, trivy-fs-scan, dependabot-scan, snyk-scan, api-security-check, web-security-check, container-scan]
+    if: always()
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "| Scan | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          echo "| Secret Scan | ${{ needs.secret-scan.result == 'success' && '✅' || '❌' }} | Gitleaks |" >> $GITHUB_STEP_SUMMARY
+          echo "| Filesystem Scan | ${{ needs.trivy-fs-scan.result == 'success' && '✅' || '❌' }} | Trivy |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependabot | ${{ needs.dependabot-scan.result == 'success' && '✅' || '❌' }} | GitHub |" >> $GITHUB_STEP_SUMMARY
+          echo "| Snyk | ${{ needs.snyk-scan.result == 'success' && '✅' || (needs.snyk-scan.result == 'skipped' && '⏭️' || '❌') }} | Snyk |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Security | ${{ needs.api-security-check.result == 'success' && '✅' || '❌' }} | Bandit/Safety |" >> $GITHUB_STEP_SUMMARY
+          echo "| Web Security | ${{ needs.web-security-check.result == 'success' && '✅' || '❌' }} | npm audit |" >> $GITHUB_STEP_SUMMARY
+          echo "| Container Scan | ${{ needs.container-scan.result == 'success' && '✅' || '❌' }} | Trivy |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.secret-scan.result }}" != "success" ]; then
+            echo "- ⚠️ **Secrets detected**: Review and remove any committed secrets" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.trivy-fs-scan.result }}" != "success" ]; then
+            echo "- ⚠️ **Vulnerable dependencies**: Update dependencies to fix vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.api-security-check.result }}" != "success" ]; then
+            echo "- ⚠️ **API security issues**: Add CORS, rate limiting, and security headers" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.web-security-check.result }}" != "success" ]; then
+            echo "- ⚠️ **Web security issues**: Configure secure cookies and HTTPS" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Overall Status" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.secret-scan.result }}" = "success" ] && \
+             [ "${{ needs.trivy-fs-scan.result }}" = "success" ] && \
+             [ "${{ needs.api-security-check.result }}" = "success" ] && \
+             [ "${{ needs.web-security-check.result }}" = "success" ]; then
+            echo "✅ All security checks passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Security issues detected - review and fix" >> $GITHUB_STEP_SUMMARY
+          fi

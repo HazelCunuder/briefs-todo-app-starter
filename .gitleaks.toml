@@ -1,0 +1,274 @@
+/**
+ * Gitleaks Configuration for To-Do App
+ * 
+ * Detects secrets, API keys, tokens, and sensitive data in git repositories
+ * Customized for the project's technology stack
+ */
+
+title = "To-Do App Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "github-pat"
+description = "GitHub Personal Access Token"
+regex = '''(?i)(ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_]{36,255}'''
+tags = ["github", "token"]
+
+[[rules]]
+id = "github-oauth"
+description = "GitHub OAuth Token"
+regex = '''gho_[a-zA-Z0-9_]{36}'''
+tags = ["github", "oauth"]
+
+[[rules]]
+id = "github-app-token"
+description = "GitHub App Token"
+regex = '''ghs_[a-zA-Z0-9_]{36}'''
+tags = ["github", "app"]
+
+[[rules]]
+id = "github-refresh-token"
+description = "GitHub Refresh Token"
+regex = '''ghr_[a-zA-Z0-9_]{36}'''
+tags = ["github", "refresh"]
+
+[[rules]]
+id = "python-pypi-token"
+description = "PyPI API Token"
+regex = '''pypi-AgEIcHlwaS5vcmc[A-Za-z0-9\-_]{50,}'''
+tags = ["pypi", "python"]
+
+[[rules]]
+id = "npm-token"
+description = "NPM Access Token"
+regex = '''npm_[A-Za-z0-9]{36}'''
+tags = ["npm", "node"]
+
+[[rules]]
+id = "bun-token"
+description = "Bun Access Token"
+regex = '''bun_[A-Za-z0-9\-_]{36,}'''
+tags = ["bun", "token"]
+
+[[rules]]
+id = "docker-hub-token"
+description = "Docker Hub Token"
+regex = '''dckr_pat_[A-Za-z0-9\-_]{20,}'''
+tags = ["docker", "token"]
+
+[[rules]]
+id = "ghcr-token"
+description = "GitHub Container Registry Token"
+regex = '''ghcr_io_[A-Za-z0-9\-_]{36,}'''
+tags = ["ghcr", "docker", "token"]
+
+[[rules]]
+id = "postgres-connection-string"
+description = "PostgreSQL Connection String"
+regex = '''postgres(ql)?://[^\s/$.?#].[^\s]*'''
+tags = ["postgres", "database", "connection"]
+
+[[rules]]
+id = "database-url"
+description = "Generic Database URL"
+regex = '''(?i)(mysql|mariadb|postgres|postgresql|mongodb|cockroachdb|couchdb|redis|sqlserver|sqlite)://[^\s/$.?#].[^\s]*'''
+tags = ["database", "connection"]
+
+[[rules]]
+id = "fastapi-secret-key"
+description = "FastAPI Secret Key"
+regex = '''SECRET_KEY\s*=\s*["'][^"']{32,}["']'''
+tags = ["fastapi", "secret", "key"]
+
+[[rules]]
+id = "jwt-secret"
+description = "JWT Secret"
+regex = '''(?i)(JWT_SECRET|SECRET_KEY|ACCESS_TOKEN|REFRESH_TOKEN)\s*=\s*["'][^"']{20,}["']'''
+tags = ["jwt", "auth", "secret"]
+
+[[rules]]
+id = "api-key-generic"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey|api[_-]?secret)\s*=\s*["'][^"']{20,}["']'''
+tags = ["api", "key", "secret"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws", "key"]
+
+[[rules]]
+id = "aws-secret-key"
+description = "AWS Secret Access Key"
+regex = '''aws(.{0,20})?['"][0-9a-zA-Z/+]{20,40}['"]'''
+tags = ["aws", "secret"]
+
+[[rules]]
+id = "aws-session-token"
+description = "AWS Session Token"
+regex = '''aws_session_token\s*=\s*["'][^"']{100,}["']'''
+tags = ["aws", "session"]
+
+[[rules]]
+id = "google-api-key"
+description = "Google API Key"
+regex = '''AIza[0-9A-Za-z\-_]{35}'''
+tags = ["google", "api", "key"]
+
+[[rules]]
+id = "google-oauth-token"
+description = "Google OAuth Token"
+regex = '''[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com'''
+tags = ["google", "oauth"]
+
+[[rules]]
+id = "heroku-api-key"
+description = "Heroku API Key"
+regex = '''heroku_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'''
+tags = ["heroku", "api", "key"]
+
+[[rules]]
+id = "stripe-api-key"
+description = "Stripe API Key"
+regex = '''(sk|pk)_(test|live)_[0-9a-zA-Z]{24,}'''
+tags = ["stripe", "api", "key"]
+
+[[rules]]
+id = "stripe-webhook-secret"
+description = "Stripe Webhook Secret"
+regex = '''whsec_[0-9a-zA-Z\-_]{24,}'''
+tags = ["stripe", "webhook", "secret"]
+
+[[rules]]
+id = "sendgrid-api-key"
+description = "SendGrid API Key"
+regex = '''SG\.[A-Za-z0-9\-_]{22,}\.[A-Za-z0-9\-_]{22,}'''
+tags = ["sendgrid", "api", "key"]
+
+[[rules]]
+id = "mailchimp-api-key"
+description = "Mailchimp API Key"
+regex = '''[0-9a-f]{32}-us[0-9]{1,2}'''
+tags = ["mailchimp", "api", "key"]
+
+[[rules]]
+id = "twilio-api-key"
+description = "Twilio API Key"
+regex = '''SK[0-9a-fA-F]{32}'''
+tags = ["twilio", "api", "key"]
+
+[[rules]]
+id = "slack-token"
+description = "Slack Token"
+regex = '''xox[baprs]-[0-9a-zA-Z\-]{10,48}'''
+tags = ["slack", "token"]
+
+[[rules]]
+id = "slack-webhook"
+description = "Slack Webhook URL"
+regex = '''https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+'''
+tags = ["slack", "webhook"]
+
+[[rules]]
+id = "discord-token"
+description = "Discord Token"
+regex = '''[MN][A-Za-z\-]{23,}\.[A-Za-z\-]{6,}[A-Za-z0-9\-]*'''
+tags = ["discord", "token"]
+
+[[rules]]
+id = "discord-webhook"
+description = "Discord Webhook URL"
+regex = '''https://discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9\-]+'''
+tags = ["discord", "webhook"]
+
+[[rules]]
+id = "generic-secret"
+description = "Generic Secret Pattern"
+regex = '''(?i)(secret|password|passwd|pwd|token|key|api[_-]?key|access[_-]?token|auth[_-]?token|private[_-]?key|encryption[_-]?key)[=:"']\s*["'][^"']{8,}["']'''
+tags = ["secret", "password", "token", "key"]
+
+[[rules]]
+id = "generic-password"
+description = "Generic Password Pattern"
+regex = '''(?i)(password|passwd|pwd)\s*=\s*["'][^"']{8,}["']'''
+tags = ["password", "secret"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----'''
+tags = ["key", "private", "crypto"]
+
+[[rules]]
+id = "certificate"
+description = "Certificate"
+regex = '''-----BEGIN CERTIFICATE-----'''
+tags = ["certificate", "crypto"]
+
+[[rules]]
+id = "bearer-token"
+description = "Bearer Token"
+regex = '''Bearer [A-Za-z0-9\-_]{20,}'''
+tags = ["bearer", "token", "auth"]
+
+[[rules]]
+id = "basic-auth"
+description = "Basic Auth Credentials"
+regex = '''Basic [A-Za-z0-9+/=]{20,}'''
+tags = ["basic", "auth", "credentials"]
+
+[[rules]]
+id = "jwt-token"
+description = "JWT Token"
+regex = '''eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+'''
+tags = ["jwt", "token", "auth"]
+
+[[rules]]
+id = "sqlalchemy-database-url"
+description = "SQLAlchemy Database URL"
+regex = '''DATABASE_URL\s*=\s*["'][^"']*://[^"']*:[^"']*@[^"']*["']'''
+tags = ["sqlalchemy", "database", "url"]
+
+[[rules]]
+id = "environment-variables"
+description = "Sensitive Environment Variables"
+regex = '''(?i)(DATABASE_URL|SECRET_KEY|API_KEY|ACCESS_TOKEN|REFRESH_TOKEN|JWT_SECRET|ENCRYPTION_KEY|PASSWORD|PASSWD|PWD)[=]?\s*["'][^"']+["']'''
+tags = ["env", "secret", "sensitive"]
+
+[allowlist]
+paths = [
+  '''test_fixtures/''',
+  '''tests/fixtures/''',
+  '''test_data/''',
+  '''mocks/''',
+  '''examples/''',
+  '''docs/''',
+  '''\.git/''',
+  '''\.github/''',
+  '''\.vibe/''',
+  '''node_modules/''',
+  '''dist/''',
+  '''build/''',
+  '''\.svelte-kit/''',
+  '''coverage/''',
+]
+
+regexes = [
+  # Allow test secrets
+  '''test_.*''',
+  '''mock_.*''',
+  '''example_.*''',
+  '''placeholder.*''',
+  '''dummy.*''',
+  # Allow common test values
+  '''changeme''',
+  '''password123''',
+  '''test123''',
+  '''example\.com''',
+]
+
+# Description for the configuration
+description = "Gitleaks configuration for detecting secrets in the To-Do App repository"

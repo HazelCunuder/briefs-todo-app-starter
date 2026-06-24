@@ -1,0 +1,36 @@
+/**
+ * lint-staged Configuration
+ * 
+ * Runs linters and formatters on staged files before commit
+ * Follows project conventions for code quality
+ */
+
+{
+  "$schema": "https://json.schemastore.org/lint-staged.json",
+  
+  "linters": {
+    "*(.md|.yaml|.yml)": ["bun run lint:md", "bun run lint:yaml"],
+    "api/**/*.py": ["ruff check", "ruff format"],
+    "web/**/*.{ts,js,svelte}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "web/**/*.{css,html}": ["prettier --write"]
+  },
+  
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.svelte-kit/**",
+    "**/coverage/**",
+    "**/.git/**",
+    "**/package-lock.json",
+    "**/yarn.lock",
+    "**/bun.lockb"
+  ],
+  
+  "concurrent": true,
+  "quiet": false,
+  "relative": false
+}
