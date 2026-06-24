@@ -1,0 +1,440 @@
+name: api-test-mcp
+version: 1.0.0
+description: |
+  MCP server for API testing and validation. Provides tools to test FastAPI endpoints,
+  validate responses, and ensure API contract compliance.
+
+# MCP server type
+server_type: api_testing
+
+# API configuration
+api:
+  base_url: "${API_BASE_URL:-http://localhost:8000}"
+  docs_url: "${API_BASE_URL:-http://localhost:8000}/docs"
+  redoc_url: "${API_BASE_URL:-http://localhost:8000}/redoc"
+
+# Available tools
+tools:
+  # Endpoint testing tools
+  - name: test_endpoint
+    description: Test a specific API endpoint with given parameters
+    parameters:
+      - name: method
+        type: string
+        required: true
+        enum: [GET, POST, PUT, DELETE, PATCH]
+        description: HTTP method
+      - name: path
+        type: string
+        required: true
+        description: Endpoint path (e.g., "/todos")
+      - name: body
+        type: object
+        required: false
+        description: Request body (for POST, PUT, PATCH)
+      - name: query_params
+        type: object
+        required: false
+        description: Query parameters
+      - name: headers
+        type: object
+        required: false
+        description: Additional headers
+    returns:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code
+        data:
+          type: object
+          description: Response data (parsed JSON)
+        headers:
+          type: object
+          description: Response headers
+        duration:
+          type: number
+          description: Request duration in milliseconds
+        success:
+          type: boolean
+          description: Whether the request was successful
+        error:
+          type: string
+          description: Error message if request failed
+    
+  - name: validate_response
+    description: Validate API response against expected schema
+    parameters:
+      - name: endpoint
+        type: string
+        required: true
+        description: Endpoint to test
+      - name: expected_schema
+        type: object
+        required: true
+        description: Expected response schema (JSON Schema)
+      - name: test_data
+        type: object
+        required: false
+        description: Test data to send with request
+    returns:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the response matches the schema
+        errors:
+          type: array
+          description: List of validation errors
+        warnings:
+          type: array
+          description: List of warnings
+        response:
+          type: object
+          description: Actual response received
+    
+  - name: test_all_endpoints
+    description: Test all API endpoints and return health status
+    parameters: []
+    returns:
+      type: object
+      properties:
+        endpoints:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              method:
+                type: string
+              status:
+                type: string
+              response_time:
+                type: number
+        overall_health:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        uptime:
+          type: number
+          description: API uptime percentage
+    
+  # Schema tools
+  - name: get_endpoint_schema
+    description: Get the OpenAPI schema for a specific endpoint
+    parameters:
+      - name: path
+        type: string
+        required: true
+        description: Endpoint path
+      - name: method
+        type: string
+        required: true
+        enum: [GET, POST, PUT, DELETE, PATCH]
+        description: HTTP method
+    returns:
+      type: object
+      properties:
+        schema:
+          type: object
+          description: OpenAPI schema for the endpoint
+        parameters:
+          type: array
+          description: Endpoint parameters
+        request_body:
+          type: object
+          description: Request body schema
+        responses:
+          type: object
+          description: Response schemas by status code
+    
+  - name: list_all_endpoints
+    description: List all available API endpoints
+    parameters: []
+    returns:
+      type: array
+      items:
+        type: object
+        properties:
+          path:
+            type: string
+          methods:
+            type: array
+            items:
+              type: string
+          summary:
+            type: string
+          description:
+            type: string
+          tags:
+            type: array
+            items:
+              type: string
+    
+  # Health check tools
+  - name: health_check
+    description: Perform a comprehensive health check on the API
+    parameters: []
+    returns:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        checks:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                connected:
+                  type: boolean
+                response_time:
+                  type: number
+            cache:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                hit_rate:
+                  type: number
+            endpoints:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  response_time:
+                    type: number
+        response_time:
+          type: number
+          description: Average response time
+        uptime:
+          type: number
+          description: Uptime percentage
+    
+  - name: check_dependencies
+    description: Check if all API dependencies are available
+    parameters: []
+    returns:
+      type: object
+      properties:
+        dependencies:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              available:
+                type: boolean
+              version:
+                type: string
+              message:
+                type: string
+        all_available:
+          type: boolean
+          description: Whether all dependencies are available
+    
+  # Performance tools
+  - name: measure_performance
+    description: Measure API performance with multiple requests
+    parameters:
+      - name: endpoint
+        type: string
+        required: true
+        description: Endpoint to test
+      - name: method
+        type: string
+        required: true
+        enum: [GET, POST, PUT, DELETE, PATCH]
+        description: HTTP method
+      - name: iterations
+        type: integer
+        required: false
+        description: Number of test iterations
+        default: 10
+      - name: concurrent
+        type: boolean
+        required: false
+        description: Whether to run requests concurrently
+        default: false
+    returns:
+      type: object
+      properties:
+        average_time:
+          type: number
+          description: Average response time in ms
+        min_time:
+          type: number
+          description: Minimum response time in ms
+        max_time:
+          type: number
+          description: Maximum response time in ms
+        std_dev:
+          type: number
+          description: Standard deviation of response times
+        requests_per_second:
+          type: number
+          description: Requests per second
+        success_rate:
+          type: number
+          description: Success rate (0-1)
+    
+  - name: load_test
+    description: Perform a load test on the API
+    parameters:
+      - name: duration
+        type: integer
+        required: false
+        description: Test duration in seconds
+        default: 30
+      - name: rate
+        type: integer
+        required: false
+        description: Requests per second
+        default: 10
+      - name: endpoints
+        type: array
+        required: false
+        description: Specific endpoints to test
+        items:
+          type: object
+          properties:
+            path:
+              type: string
+            method:
+              type: string
+            weight:
+              type: number
+              description: Request weight (0-1)
+    returns:
+      type: object
+      properties:
+        total_requests:
+          type: integer
+        successful_requests:
+          type: integer
+        failed_requests:
+          type: integer
+        average_latency:
+          type: number
+        throughput:
+          type: number
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              count:
+                type: integer
+              message:
+                type: string
+
+# Resource templates
+resources:
+  - name: api_endpoint_template
+    description: Template for a new API endpoint
+    content: |
+      # FastAPI endpoint template
+      
+      @app.{method}("/{path}", response_model={response_model}, status_code={status_code})
+      def {function_name}({parameters}, db: Session = Depends(get_db)):
+          """
+          {description}
+          
+          Args:
+              {args}
+          
+          Returns:
+              {returns}
+          """
+          {implementation}
+  
+  - name: test_case_template
+    description: Template for testing an API endpoint
+    content: |
+      # Test case for {endpoint}
+      
+      def test_{function_name}(client: TestClient, sample_data: dict):
+          """Test {description}"""
+          # Arrange
+          {arrange}
+          
+          # Act
+          response = client.{method}("{path}"{params})
+          
+          # Assert
+          assert response.status_code == {expected_status}
+          {assertions}
+
+# Usage examples
+examples:
+  - name: Test todos endpoint
+    description: Test the GET /todos endpoint
+    code: |
+      const result = await mcp.callTool('api-test-mcp', 'test_endpoint', {
+        method: 'GET',
+        path: '/todos'
+      });
+      console.log(result.data);
+    
+  - name: Validate response schema
+    description: Validate the response from POST /todos
+    code: |
+      const validation = await mcp.callTool('api-test-mcp', 'validate_response', {
+        endpoint: '/todos',
+        expected_schema: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            title: { type: 'string' },
+            completed: { type: 'boolean' }
+          },
+          required: ['id', 'title', 'completed']
+        },
+        test_data: { title: 'Test task' }
+      });
+      console.log(validation.valid);
+    
+  - name: Health check
+    description: Perform a health check on the API
+    code: |
+      const health = await mcp.callTool('api-test-mcp', 'health_check', {});
+      console.log(`API Health: ${health.status}`);
+
+# Integration with project
+integration:
+  # Context files to load
+  context:
+    - AGENTS.md
+    - docs/AGENTS.md
+    - docs/TECHNICAL_GUIDE.md
+    - docs/COMPONENT_REFERENCE.md
+    - api/main.py
+    - api/schemas.py
+    - api/tests/
+  
+  # Related commands
+  related_commands:
+    - "cd api && uv run uvicorn main:app --reload"  # Start API
+    - "curl http://localhost:8000/todos"  # Test endpoint
+    - "cd api && python -m pytest tests/"  # Run tests
+    - "http://localhost:8000/docs"  # Open Swagger UI
+
+# Security configuration
+security:
+  # Safe by default
+  safe_methods: [GET, OPTIONS]
+  
+  # Require confirmation for destructive operations
+  confirm_required: [DELETE, POST, PUT, PATCH]
+  
+  # Rate limiting
+  rate_limit:
+    requests_per_minute: 60
+    burst_size: 10
+  
+  # Timeout
+  timeout: 30000  # 30 seconds

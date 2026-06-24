@@ -1,0 +1,603 @@
+name: frontend-dev-mcp
+version: 1.0.0
+description: |
+  MCP server for frontend development. Provides tools for SvelteKit development,
+  TypeScript type checking, Tailwind CSS analysis, and component generation.
+
+# MCP server type
+server_type: frontend_tooling
+
+# Project configuration
+project:
+  framework: sveltekit
+  version: "^2.15.0"
+  language: typescript
+  styling: tailwindcss
+  styling_version: "^4.0.0"
+
+# Available tools
+tools:
+  # Component tools
+  - name: generate_component
+    description: Generate a new Svelte component with proper structure
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Component name (PascalCase)
+      - name: props
+        type: object
+        required: false
+        description: Component props with types
+        default: {}
+      - name: state
+        type: object
+        required: false
+        description: Local state variables
+        default: {}
+      - name: methods
+        type: array
+        required: false
+        description: Methods to include
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+            parameters:
+              type: array
+              items:
+                type: object
+            return_type:
+              type: string
+            implementation:
+              type: string
+      - name: template
+        type: string
+        required: false
+        description: Component template type
+        enum: [empty, card, form, list, button, modal]
+        default: empty
+    returns:
+      type: object
+      properties:
+        file_path:
+          type: string
+          description: Path to the generated component
+        content:
+          type: string
+          description: Generated component content
+        imports:
+          type: array
+          description: Required imports
+          items:
+            type: string
+    
+  - name: analyze_component
+    description: Analyze a Svelte component for best practices and issues
+    parameters:
+      - name: file_path
+        type: string
+        required: true
+        description: Path to the component file
+    returns:
+      type: object
+      properties:
+        issues:
+          type: array
+          description: List of issues found
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [error, warning, info]
+              message:
+                type: string
+              line:
+                type: integer
+              column:
+                type: integer
+              suggestion:
+                type: string
+        best_practices:
+          type: array
+          description: Best practices being followed
+          items:
+            type: string
+        suggestions:
+          type: array
+          description: Suggestions for improvement
+          items:
+            type: string
+    
+  - name: list_components
+    description: List all Svelte components in the project
+    parameters: []
+    returns:
+      type: array
+      items:
+        type: object
+        properties:
+          path:
+            type: string
+          name:
+            type: string
+          type:
+            type: string
+            enum: [component, page, layout]
+          size:
+            type: integer
+          last_modified:
+            type: string
+    
+  # TypeScript tools
+  - name: check_types
+    description: Run TypeScript type checking on a file or directory
+    parameters:
+      - name: path
+        type: string
+        required: false
+        description: Path to check (defaults to web/src)
+        default: web/src
+    returns:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether type checking passed
+        errors:
+          type: array
+          description: List of type errors
+          items:
+            type: object
+            properties:
+              file:
+                type: string
+              line:
+                type: integer
+              column:
+                type: integer
+              message:
+                type: string
+              code:
+                type: string
+        warnings:
+          type: array
+          description: List of type warnings
+          items:
+            type: object
+    
+  - name: generate_types
+    description: Generate TypeScript types from API schemas or data
+    parameters:
+      - name: source
+        type: string
+        required: true
+        description: Source of the schema
+        enum: [api, json, yaml, manual]
+      - name: data
+        type: object
+        required: false
+        description: Source data for type generation
+      - name: output_path
+        type: string
+        required: false
+        description: Where to save the generated types
+        default: web/src/lib/types.ts
+    returns:
+      type: object
+      properties:
+        types:
+          type: string
+          description: Generated TypeScript types
+        file_path:
+          type: string
+          description: Path where types were saved
+        interfaces:
+          type: array
+          description: List of generated interfaces
+          items:
+            type: string
+    
+  - name: validate_types
+    description: Validate that types are being used correctly throughout the codebase
+    parameters:
+      - name: type_name
+        type: string
+        required: false
+        description: Specific type to validate
+      - name: path
+        type: string
+        required: false
+        description: Path to validate
+        default: web/src
+    returns:
+      type: object
+      properties:
+        usages:
+          type: array
+          description: List of type usages
+          items:
+            type: object
+            properties:
+              file:
+                type: string
+              line:
+                type: integer
+              context:
+                type: string
+        missing_types:
+          type: array
+          description: Variables that should have types but don't
+          items:
+            type: object
+        suggestions:
+          type: array
+          description: Suggestions for type improvements
+          items:
+            type: string
+    
+  # Tailwind CSS tools
+  - name: analyze_styles
+    description: Analyze Tailwind CSS usage in a file or directory
+    parameters:
+      - name: path
+        type: string
+        required: false
+        description: Path to analyze (defaults to web/src)
+        default: web/src
+    returns:
+      type: object
+      properties:
+        classes:
+          type: object
+          description: Class usage statistics
+          additionalProperties:
+            type: integer
+        unused_classes:
+          type: array
+          description: Classes that are defined but not used
+          items:
+            type: string
+        duplicate_styles:
+          type: array
+          description: Duplicate style patterns
+          items:
+            type: object
+            properties:
+              pattern:
+                type: string
+              locations:
+                type: array
+                items:
+                  type: object
+        custom_css:
+          type: array
+          description: Custom CSS that could be converted to Tailwind
+          items:
+            type: object
+    
+  - name: suggest_styles
+    description: Suggest Tailwind classes for a given design requirement
+    parameters:
+      - name: requirement
+        type: string
+        required: true
+        description: Design requirement (e.g., "primary button", "card with shadow")
+      - name: context
+        type: string
+        required: false
+        description: Additional context about where it will be used
+    returns:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          description: List of suggested class combinations
+          items:
+            type: object
+            properties:
+              classes:
+                type: string
+              description:
+                type: string
+              preview:
+                type: string
+        theme_colors:
+          type: object
+          description: Color palette suggestions
+          additionalProperties:
+            type: string
+    
+  - name: check_design_system
+    description: Check if code follows the project design system
+    parameters:
+      - name: path
+        type: string
+        required: false
+        description: Path to check
+        default: web/src
+    returns:
+      type: object
+      properties:
+        compliance:
+          type: number
+          description: Percentage of compliance with design system
+        issues:
+          type: array
+          description: Design system violations
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              file:
+                type: string
+              line:
+                type: integer
+              message:
+                type: string
+              expected:
+                type: string
+              found:
+                type: string
+        suggestions:
+          type: array
+          description: Suggestions for improvement
+          items:
+            type: string
+    
+  # SvelteKit tools
+  - name: analyze_route
+    description: Analyze a SvelteKit route for best practices
+    parameters:
+      - name: path
+        type: string
+        required: true
+        description: Route path (e.g., +page.svelte)
+    returns:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Route type
+        load_function:
+          type: boolean
+          description: Whether the route has a load function
+        data_dependencies:
+          type: array
+          description: Data dependencies
+          items:
+            type: string
+        seo:
+          type: object
+          description: SEO metadata
+          properties:
+            title:
+              type: string
+            description:
+              type: string
+        suggestions:
+          type: array
+          description: Suggestions for improvement
+          items:
+            type: string
+    
+  - name: generate_page
+    description: Generate a new SvelteKit page with proper structure
+    parameters:
+      - name: path
+        type: string
+        required: true
+        description: Page path (e.g., "todos/[id]")
+      - name: data_sources
+        type: array
+        required: false
+        description: Data sources for the page
+        items:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [api, database, static]
+            endpoint:
+              type: string
+            query:
+              type: string
+      - name: components
+        type: array
+        required: false
+        description: Components to include
+        items:
+          type: string
+    returns:
+      type: object
+      properties:
+        files:
+          type: array
+          description: Generated files
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              content:
+                type: string
+        folder_structure:
+          type: string
+          description: Folder structure created
+    
+  - name: check_ssr
+    description: Check SSR configuration and suggest improvements
+    parameters: []
+    returns:
+      type: object
+      properties:
+        ssr_enabled:
+          type: boolean
+        adapter:
+          type: string
+        static_files:
+          type: array
+          description: Static files that could be optimized
+          items:
+            type: string
+        suggestions:
+          type: array
+          description: SSR optimization suggestions
+          items:
+            type: string
+
+# Resource templates
+resources:
+  - name: component_template
+    description: Template for a new Svelte component
+    content: |
+      <script lang="ts">
+        import type { {TypeName} } from '$lib/types';
+        
+        interface Props {{
+          {props}
+        }}
+        
+        let {{ props_destructured }}: Props = $props();
+        
+        {state}
+        
+        {methods}
+      </script>
+      
+      {template}
+      
+      <style>
+        {styles}
+      </style>
+  
+  - name: page_template
+    description: Template for a new SvelteKit page
+    content: |
+      <script lang="ts">
+        import { api } from '$lib/api';
+        import type { {TypeName} } from '$lib/types';
+        
+        {state}
+        
+        {derived}
+        
+        {effects}
+        
+        {methods}
+      </script>
+      
+      {template}
+  
+  - name: api_client_template
+    description: Template for API client methods
+    content: |
+      import type { {TypeName} } from './types';
+      
+      const BASE = '/api';
+      
+      async function request<T>(path: string, init?: RequestInit): Promise<T> {{
+        const res = await fetch(`${{BASE}}{{path}}`, {{
+          headers: {{ 'Content-Type': 'application/json' }},
+          ...init
+        }});
+        if (!res.ok) throw new Error(`${{res.status}} ${{res.statusText}}`);
+        if (res.status === 204) return undefined as T;
+        return res.json() as Promise<T>;
+      }}
+      
+      export const api = {{
+        {methods}
+      }};
+
+# Usage examples
+examples:
+  - name: Generate a new component
+    description: Create a TodoItem component
+    code: |
+      const component = await mcp.callTool('frontend-dev-mcp', 'generate_component', {
+        name: 'TodoItem',
+        props: {
+          todo: 'Todo',
+          onToggle: 'Function',
+          onDelete: 'Function'
+        },
+        state: {
+          editing: 'boolean'
+        },
+        template: 'card'
+      });
+      console.log(component.content);
+    
+  - name: Check TypeScript types
+    description: Run type checking on the frontend
+    code: |
+      const result = await mcp.callTool('frontend-dev-mcp', 'check_types', {});
+      if (!result.success) {
+        console.log('Type errors found:', result.errors);
+      }
+    
+  - name: Analyze styles
+    description: Analyze Tailwind CSS usage
+    code: |
+      const analysis = await mcp.callTool('frontend-dev-mcp', 'analyze_styles', {});
+      console.log('Class usage:', analysis.classes);
+      console.log('Unused classes:', analysis.unused_classes);
+
+# Integration with project
+integration:
+  # Context files to load
+  context:
+    - AGENTS.md
+    - docs/AGENTS.md
+    - docs/TECHNICAL_GUIDE.md
+    - docs/DESIGN_SYSTEM.md
+    - web/src/lib/types.ts
+    - web/src/lib/api.ts
+  
+  # Related commands
+  related_commands:
+    - "cd web && npm run dev"  # Start dev server
+    - "cd web && npm run check"  # Type checking
+    - "cd web && npm run build"  # Production build
+    - "cd web && npm run preview"  # Preview build
+
+# Project-specific configuration
+config:
+  # Svelte 5 runes to promote
+  preferred_runes:
+    - $state
+    - $derived
+    - $effect
+    - $props
+  
+  # Legacy syntax to avoid
+  deprecated_syntax:
+    - "$: "
+    - "export let"
+    - "<script context="
+  
+  # Design system colors
+  color_palette:
+    primary: indigo
+    background: slate
+    surface: white
+    text: slate
+    danger: red
+  
+  # Spacing system
+  spacing:
+    unit: rem
+    scale: [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4]
+  
+  # Typography
+  typography:
+    font_family: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont"
+    heading_scale:
+      sm: "text-xl"
+      md: "text-2xl"
+      lg: "text-3xl"
+      xl: "text-4xl"

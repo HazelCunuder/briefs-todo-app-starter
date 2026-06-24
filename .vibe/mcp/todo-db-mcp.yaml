@@ -1,0 +1,364 @@
+name: todo-db-mcp
+version: 1.0.0
+description: |
+  MCP server for database operations. Provides tools to query, analyze, and manage
+  the To-Do application database (SQLite or PostgreSQL).
+
+# MCP server type
+server_type: database
+
+# Connection configuration
+connection:
+  type: sqlalchemy
+  connection_string: "${DATABASE_URL:-sqlite:///./api/todo.db}"
+  
+# Available tools
+tools:
+  # Query tools
+  - name: execute_query
+    description: Execute a SQL query and return results
+    parameters:
+      - name: query
+        type: string
+        required: true
+        description: SQL query to execute
+      - name: params
+        type: object
+        required: false
+        description: Query parameters for parameterized queries
+    returns:
+      type: object
+      properties:
+        results:
+          type: array
+          description: Query results as array of objects
+        row_count:
+          type: integer
+          description: Number of rows returned
+        columns:
+          type: array
+          description: Column names
+    
+  - name: get_table_schema
+    description: Get schema information for a table
+    parameters:
+      - name: table_name
+        type: string
+        required: true
+        description: Name of the table
+    returns:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+              nullable:
+                type: boolean
+              default:
+                type: string
+              primary_key:
+                type: boolean
+        indexes:
+          type: array
+          description: List of indexes on the table
+        constraints:
+          type: array
+          description: List of constraints
+    
+  - name: list_tables
+    description: List all tables in the database
+    parameters: []
+    returns:
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          row_count:
+            type: integer
+          size:
+            type: string
+    
+  # CRUD tools for todos
+  - name: get_all_todos
+    description: Get all todo items from the database
+    parameters: []
+    returns:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: integer
+          title:
+            type: string
+          description:
+            type: string
+          completed:
+            type: boolean
+          created_at:
+            type: string
+          updated_at:
+            type: string
+    
+  - name: get_todo_by_id
+    description: Get a specific todo by ID
+    parameters:
+      - name: todo_id
+        type: integer
+        required: true
+        description: ID of the todo to retrieve
+    returns:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        completed:
+          type: boolean
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    
+  - name: create_todo
+    description: Create a new todo item
+    parameters:
+      - name: title
+        type: string
+        required: true
+        description: Title of the todo
+      - name: description
+        type: string
+        required: false
+        description: Description of the todo
+      - name: completed
+        type: boolean
+        required: false
+        description: Initial completion status
+        default: false
+    returns:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        completed:
+          type: boolean
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    
+  - name: update_todo
+    description: Update an existing todo item
+    parameters:
+      - name: todo_id
+        type: integer
+        required: true
+        description: ID of the todo to update
+      - name: title
+        type: string
+        required: false
+        description: New title
+      - name: description
+        type: string
+        required: false
+        description: New description
+      - name: completed
+        type: boolean
+        required: false
+        description: New completion status
+    returns:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        completed:
+          type: boolean
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    
+  - name: delete_todo
+    description: Delete a todo item
+    parameters:
+      - name: todo_id
+        type: integer
+        required: true
+        description: ID of the todo to delete
+    returns:
+      type: boolean
+      description: Whether the deletion was successful
+    
+  # Analysis tools
+  - name: analyze_database
+    description: Analyze database structure and provide insights
+    parameters: []
+    returns:
+      type: object
+      properties:
+        tables:
+          type: array
+          description: List of tables with metadata
+        size:
+          type: string
+          description: Total database size
+        connections:
+          type: integer
+          description: Current connection count
+        health:
+          type: string
+          description: Database health status
+    
+  - name: get_statistics
+    description: Get statistics about the todo data
+    parameters: []
+    returns:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of todos
+        completed:
+          type: integer
+          description: Number of completed todos
+        active:
+          type: integer
+          description: Number of active todos
+        average_length:
+          type: number
+          description: Average title length
+        created_range:
+          type: object
+          properties:
+            earliest:
+              type: string
+            latest:
+              type: string
+    
+  # Migration tools
+  - name: check_migrations
+    description: Check if database migrations are needed
+    parameters: []
+    returns:
+      type: object
+      properties:
+        current:
+          type: string
+          description: Current migration version
+        needed:
+          type: array
+          description: List of migrations that need to be applied
+        status:
+          type: string
+          description: Migration status
+    
+  - name: apply_migrations
+    description: Apply pending database migrations
+    parameters: []
+    returns:
+      type: object
+      properties:
+        applied:
+          type: array
+          description: List of applied migrations
+        errors:
+          type: array
+          description: List of errors during migration
+        success:
+          type: boolean
+          description: Whether all migrations were successful
+
+# Resource templates
+resources:
+  - name: todo_table_schema
+    description: Schema for the todos table
+    content: |
+      CREATE TABLE todos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title VARCHAR(200) NOT NULL,
+          description VARCHAR(500),
+          completed BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE INDEX idx_todos_created_at ON todos(created_at DESC);
+      CREATE INDEX idx_todos_completed ON todos(completed);
+
+# Usage examples
+examples:
+  - name: Get all todos
+    description: Retrieve all todo items
+    code: |
+      const todos = await mcp.callTool('todo-db-mcp', 'get_all_todos', {});
+      console.log(todos);
+    
+  - name: Create a todo
+    description: Create a new todo item
+    code: |
+      const newTodo = await mcp.callTool('todo-db-mcp', 'create_todo', {
+        title: 'Buy groceries',
+        description: 'Milk, eggs, bread'
+      });
+      console.log(newTodo);
+    
+  - name: Get statistics
+    description: Get todo statistics
+    code: |
+      const stats = await mcp.callTool('todo-db-mcp', 'get_statistics', {});
+      console.log(`Total: ${stats.total}, Completed: ${stats.completed}`);
+
+# Security configuration
+security:
+  # Read-only by default
+  default_access: read
+  
+  # Write operations require explicit permission
+  write_operations:
+    - create_todo
+    - update_todo
+    - delete_todo
+    - apply_migrations
+  
+  # Always use parameterized queries
+  parameterized_queries: true
+  
+  # Connection pooling
+  pool_size: 5
+  pool_timeout: 30
+
+# Integration with project
+integration:
+  # Context files to load
+  context:
+    - AGENTS.md
+    - docs/AGENTS.md
+    - docs/TECHNICAL_GUIDE.md
+    - api/models.py
+    - api/database.py
+  
+  # Related commands
+  related_commands:
+    - "docker compose exec api python -m models"  # Create tables
+    - "sqlite3 api/todo.db \".tables\""  # List tables (SQLite)
+    - "docker compose exec db psql -U todoapp -d tododb -c \"\dt\""  # List tables (PostgreSQL)
