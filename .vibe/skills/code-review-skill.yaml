@@ -1,0 +1,161 @@
+name: code-review-skill
+version: 1.0.0
+description: |
+  Auto-triggered skill for code review tasks. Analyzes code quality, follows project conventions,
+  and provides constructive feedback on pull requests and commits.
+
+# Auto-trigger conditions
+triggers:
+  # Trigger on pull request events
+  - type: github.pull_request
+    action: [opened, synchronize, reopened]
+    
+  # Trigger on push to main/develop branches
+  - type: github.push
+    branches: [main, develop]
+    
+  # Trigger when reviewing specific file types
+  - type: file.match
+    patterns: ["**.py", "**.ts", "**.svelte", "**.js"]
+    actions: [create, modify]
+
+# Skill capabilities
+actions:
+  - name: analyze_code_quality
+    description: Analyze code for quality, style, and convention compliance
+    
+  - name: check_conventions
+    description: Verify code follows project conventions from CONVENTIONS.md
+    
+  - name: review_changes
+    description: Review git diff and provide feedback on changes
+    
+  - name: suggest_improvements
+    description: Suggest improvements for code quality and maintainability
+
+# Context files to load when triggered
+context:
+  - AGENTS.md
+  - docs/AGENTS.md
+  - docs/CONVENTIONS.md
+  - docs/TECHNICAL_GUIDE.md
+
+# Skill behavior configuration
+config:
+  # Always check these before providing feedback
+  pre_checks:
+    - lint: "bun run lint"
+    - type_check: "cd web && npm run check"
+    - test: "cd api && python -m pytest tests/"
+  
+  # Focus areas for review
+  focus_areas:
+    - code_style
+    - type_safety
+    - security
+    - performance
+    - documentation
+  
+  # Severity levels for feedback
+  severity_levels:
+    - critical: [security_issues, breaking_changes]
+    - high: [type_errors, convention_violations]
+    - medium: [code_style_issues, missing_docs]
+    - low: [suggestions, optimizations]
+
+# Response templates
+responses:
+  pr_review:
+    template: |
+      ## Code Review Feedback
+      
+      ### ✅ What's Good
+      {good_points}
+      
+      ### 🔍 Areas for Improvement
+      {improvement_points}
+      
+      ### ⚠️ Issues to Address
+      {issue_points}
+      
+      ### 📝 Suggestions
+      {suggestion_points}
+      
+      ---
+      *Review based on project conventions from `docs/CONVENTIONS.md`*
+    
+  convention_violation:
+    template: |
+      ⚠️ **Convention Violation Detected**
+      
+      **File**: `{file_path}`
+      **Line**: `{line_number}`
+      **Issue**: `{issue_description}`
+      
+      **Expected**: `{expected}`
+      **Found**: `{found}`
+      
+      **Fix**: `{suggested_fix}`
+      
+      *Reference: `{convention_reference}`*
+
+# Project-specific rules
+rules:
+  python:
+    - name: pep8_compliance
+      pattern: "^(?!.*[A-Z][a-z]+[A-Z]).*$"  # No camelCase in Python
+      message: "Python code must use snake_case, not camelCase"
+      reference: "docs/CONVENTIONS.md#python-conventions"
+      
+    - name: type_hints_required
+      pattern: "def\s+\w+\s*\("  # Function without type hints
+      message: "All Python functions must have type hints"
+      reference: "docs/CONVENTIONS.md#type-hints"
+      
+    - name: pydantic_models
+      pattern: "class\s+\w+\s*\("  # Class without BaseModel
+      message: "API schemas should use Pydantic BaseModel"
+      reference: "docs/TECHNICAL_GUIDE.md#pydantic-schemas"
+      
+  typescript:
+    - name: explicit_types
+      pattern: "let\s+\w+\s*="  # Variable without type annotation
+      message: "TypeScript variables should have explicit types"
+      reference: "docs/CONVENTIONS.md#typescript--svelte"
+      
+    - name: svelte5_runes
+      pattern: "\$:\s*"  # Legacy reactive syntax
+      message: "Use Svelte 5 runes ($state, $derived, $effect) instead of legacy $: syntax"
+      reference: "docs/CONVENTIONS.md#svelte-conventions"
+      
+    - name: interface_naming
+      pattern: "interface\s+[a-z]"  # interface not PascalCase
+      message: "TypeScript interfaces should use PascalCase"
+      reference: "docs/CONVENTIONS.md#file-naming"
+      
+  docker:
+    - name: non_root_user
+      pattern: "USER\s+root"  # Using root user
+      message: "Dockerfiles should use non-root users for security"
+      reference: "docs/TECHNICAL_GUIDE.md#docker-conventions"
+      
+    - name: specific_tags
+      pattern: "FROM\s+\w+:latest"  # Using latest tag
+      message: "Use specific image tags, not 'latest'"
+      reference: "docs/CONVENTIONS.md#docker-conventions"
+
+# Integration with project tools
+integrations:
+  linting:
+    - command: "bun run lint"
+      description: "Run markdown and YAML linting"
+      
+    - command: "cd web && npm run check"
+      description: "Run TypeScript type checking"
+      
+    - command: "cd api && python -m pytest tests/"
+      description: "Run API tests"
+      
+  formatting:
+    - command: "bun run lint:md:fix"
+      description: "Auto-fix markdown formatting"

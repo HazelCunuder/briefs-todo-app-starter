@@ -1,0 +1,362 @@
+name: fullstack-dev-skill
+version: 1.0.0
+description: |
+  Auto-triggered skill for full-stack development tasks. Provides expertise on integrating
+  FastAPI backend with SvelteKit frontend, database modeling, and end-to-end feature development.
+
+# Auto-trigger conditions
+triggers:
+  # Trigger on full-stack feature development
+  - type: file.match
+    patterns: ["**/main.py", "**/models.py", "**/schemas.py", "**/crud.py"]
+    actions: [create, modify]
+    
+  - type: file.match
+    patterns: ["**/+page.svelte", "**/+layout.svelte", "**/api.ts", "**/types.ts"]
+    actions: [create, modify]
+    
+  # Trigger on database-related changes
+  - type: file.match
+    patterns: ["**/database.py", "**/models.py"]
+    actions: [create, modify]
+    
+  # Trigger on new feature branches
+  - type: github.push
+    branches: ["feature/*", "fix/*", "refactor/*"]
+
+# Skill capabilities
+actions:
+  - name: analyze_feature
+    description: Analyze feature implementation across all layers
+    
+  - name: generate_fullstack_code
+    description: Generate coordinated backend and frontend code
+    
+  - name: validate_integration
+    description: Validate backend-frontend integration
+    
+  - name: suggest_architecture
+    description: Suggest architectural improvements
+    
+  - name: debug_integration
+    description: Debug integration issues between layers
+
+# Context files to load when triggered
+context:
+  - AGENTS.md
+  - docs/AGENTS.md
+  - docs/TECHNICAL_GUIDE.md
+  - docs/PROJECT_STRUCTURE.md
+  - docs/COMPONENT_REFERENCE.md
+  - docs/FEATURES.md
+
+# Skill behavior configuration
+config:
+  # Layer mapping for full-stack development
+  layers:
+    - name: database
+      files: ["api/database.py", "api/models.py"]
+      language: python
+      framework: sqlalchemy
+      
+    - name: api
+      files: ["api/main.py", "api/schemas.py", "api/crud.py"]
+      language: python
+      framework: fastapi
+      
+    - name: frontend
+      files: ["web/src/lib/api.ts", "web/src/lib/types.ts", "web/src/routes/+page.svelte"]
+      language: typescript
+      framework: sveltekit
+      
+    - name: components
+      files: ["web/src/lib/components/*.svelte"]
+      language: typescript
+      framework: svelte
+
+  # Feature development workflow
+  workflow:
+    steps:
+      1. name: define_schema
+         layer: api
+         description: Define Pydantic schemas for request/response
+         files: ["api/schemas.py"]
+         
+      2. name: create_model
+         layer: database
+         description: Create SQLAlchemy model
+         files: ["api/models.py"]
+         
+      3. name: implement_crud
+         layer: api
+         description: Implement CRUD operations
+         files: ["api/crud.py"]
+         
+      4. name: add_routes
+         layer: api
+         description: Add FastAPI routes
+         files: ["api/main.py"]
+         
+      5. name: define_types
+         layer: frontend
+         description: Define TypeScript interfaces
+         files: ["web/src/lib/types.ts"]
+         
+      6. name: create_api_client
+         layer: frontend
+         description: Create typed API client methods
+         files: ["web/src/lib/api.ts"]
+         
+      7. name: build_components
+         layer: components
+         description: Build Svelte components
+         files: ["web/src/lib/components/*.svelte"]
+         
+      8. name: integrate_page
+         layer: frontend
+         description: Integrate into page
+         files: ["web/src/routes/+page.svelte"]
+         
+      9. name: add_tests
+         layer: all
+         description: Add tests for all layers
+         files: ["api/tests/*.py", "web/tests/*.ts"]
+         
+      10. name: update_docs
+          layer: documentation
+          description: Update documentation
+          files: ["docs/*.md"]
+
+  # Integration patterns
+  integration_patterns:
+    - name: api_frontend_integration
+      description: Connect frontend to API endpoints
+      pattern: |
+        Frontend: api.ts → /api/* → Vite proxy → FastAPI: main.py → CRUD → Database
+      example: |
+        # Frontend (api.ts)
+        export const api = {
+          listTodos: () => request<Todo[]>('/todos'),
+          // ...
+        };
+        
+        # Backend (main.py)
+        @app.get("/todos", response_model=list[TodoResponse])
+        def list_todos(db: Session = Depends(get_db)):
+            return crud.get_todos(db)
+      
+    - name: optimistic_updates
+      description: Implement optimistic UI updates with rollback
+      pattern: |
+        1. Update local state immediately
+        2. Call API
+        3. Rollback on error
+      example: |
+        async function toggleTodo(id: number, completed: boolean) {
+          const previous = todos.find(t => t.id === id)?.completed;
+          todos = todos.map(t => t.id === id ? { ...t, completed } : t);
+          try {
+            await api.updateTodo(id, { completed });
+          } catch (error) {
+            todos = todos.map(t => t.id === id ? { ...t, completed: previous } : t);
+          }
+        }
+
+# Response templates
+responses:
+  feature_analysis:
+    template: |
+      ## Full-Stack Feature Analysis
+      
+      **Feature**: `{feature_name}`
+      
+      ### 🏗️ Architecture Overview
+      {architecture}
+      
+      ### ✅ Implemented Layers
+      {implemented_layers}
+      
+      ### ⏳ Missing Layers
+      {missing_layers}
+      
+      ### 🔗 Integration Status
+      {integration_status}
+      
+      ### 📝 Next Steps
+      {next_steps}
+      
+      ---
+      *Analysis based on project structure from `docs/PROJECT_STRUCTURE.md`*
+    
+  code_generation:
+    template: |
+      ## Generated Full-Stack Code
+      
+      ### Backend ({layer})
+      ```python
+      {backend_code}
+      ```
+      
+      ### Frontend ({layer})
+      ```typescript
+      {frontend_code}
+      ```
+      
+      ### Integration
+      {integration_notes}
+      
+      ---
+      *Generated following patterns from `docs/TECHNICAL_GUIDE.md`*
+
+# Project-specific patterns
+patterns:
+  crud_implementation:
+    name: CRUD Implementation Pattern
+    description: Standard pattern for CRUD operations
+    template: |
+      # models.py
+      class {ModelName}(Base):
+          __tablename__ = "{table_name}"
+          id = Column(Integer, primary_key=True, index=True)
+          {fields}
+          created_at = Column(DateTime(timezone=True), server_default=func.now())
+          updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+      
+      # schemas.py
+      class {ModelName}Base(BaseModel):
+          {schema_fields}
+      
+      class {ModelName}Create({ModelName}Base):
+          pass
+      
+      class {ModelName}Update(BaseModel):
+          {update_fields}
+      
+      class {ModelName}Response({ModelName}Base):
+          id: int
+          created_at: datetime
+          updated_at: datetime | None = None
+          model_config = {{"from_attributes": True}}
+      
+      # crud.py
+      def get_{table_name}(db: Session) -> list[{ModelName}]:
+          return db.query({ModelName}).order_by({ModelName}.created_at.desc()).all()
+      
+      def get_{table_name}_by_id(db: Session, {id_field}: int) -> {ModelName} | None:
+          return db.query({ModelName}).filter({ModelName}.id == {id_field}).first()
+      
+      def create_{table_name}(db: Session, {table_name}: {ModelName}Create) -> {ModelName}:
+          db_{table_name} = {ModelName}(**{table_name}.model_dump())
+          db.add(db_{table_name})
+          db.commit()
+          db.refresh(db_{table_name})
+          return db_{table_name}
+      
+      def update_{table_name}(db: Session, {id_field}: int, {table_name}: {ModelName}Update) -> {ModelName} | None:
+          db_{table_name} = get_{table_name}_by_id(db, {id_field})
+          if not db_{table_name}:
+              return None
+          for key, value in {table_name}.model_dump(exclude_unset=True).items():
+              setattr(db_{table_name}, key, value)
+          db.commit()
+          db.refresh(db_{table_name})
+          return db_{table_name}
+      
+      def delete_{table_name}(db: Session, {id_field}: int) -> bool:
+          db_{table_name} = get_{table_name}_by_id(db, {id_field})
+          if not db_{table_name}:
+              return False
+          db.delete(db_{table_name})
+          db.commit()
+          return True
+      
+      # main.py
+      @app.get("/{table_name}", response_model=list[{ModelName}Response])
+      def list_{table_name}(db: Session = Depends(get_db)):
+          return crud.get_{table_name}(db)
+      
+      @app.get("/{table_name}/{{{id_field}}}", response_model={ModelName}Response)
+      def get_{table_name}({id_field}: int, db: Session = Depends(get_db)):
+          todo = crud.get_{table_name}_by_id(db, {id_field})
+          if not todo:
+              raise HTTPException(status_code=404, detail="{ModelName} not found")
+          return todo
+      
+      @app.post("/{table_name}", response_model={ModelName}Response, status_code=201)
+      def create_{table_name}({table_name}: {ModelName}Create, db: Session = Depends(get_db)):
+          return crud.create_{table_name}(db, {table_name})
+      
+      @app.put("/{table_name}/{{{id_field}}}", response_model={ModelName}Response)
+      def update_{table_name}({id_field}: int, {table_name}: {ModelName}Update, db: Session = Depends(get_db)):
+          updated = crud.update_{table_name}(db, {id_field}, {table_name})
+          if not updated:
+              raise HTTPException(status_code=404, detail="{ModelName} not found")
+          return updated
+      
+      @app.delete("/{table_name}/{{{id_field}}}", status_code=204)
+      def delete_{table_name}({id_field}: int, db: Session = Depends(get_db)):
+          if not crud.delete_{table_name}(db, {id_field}):
+              raise HTTPException(status_code=404, detail="{ModelName} not found")
+  
+  frontend_component:
+    name: Svelte Component Pattern
+    description: Standard pattern for Svelte components with props
+    template: |
+      <script lang="ts">
+        import type {{TypeName}} from '$lib/types';
+        
+        interface Props {{
+          {props}
+        }}
+        
+        let {{ props_destructured }}: Props = $props();
+        {state_declarations}
+        
+        {functions}
+      </script>
+      
+      {template}
+  
+  api_client_methods:
+    name: API Client Methods Pattern
+    description: Standard pattern for typed API client
+    template: |
+      import type {{ TypeName, CreateType, UpdateType }} from './types';
+      
+      const BASE = '/api';
+      
+      async function request<T>(path: string, init?: RequestInit): Promise<T> {{
+        const res = await fetch(`${{BASE}}{{path}}`, {{
+          headers: {{ 'Content-Type': 'application/json' }},
+          ...init
+        }});
+        if (!res.ok) throw new Error(`${{res.status}} ${{res.statusText}}`);
+        if (res.status === 204) return undefined as T;
+        return res.json() as Promise<T>;
+      }}
+      
+      export const api = {{
+        list{TypeName}s: () => request<{TypeName}[]>('/{table_name}'),
+        get{TypeName}: (id: number) => request<{TypeName}>(`/{table_name}/{{id}}`),
+        create{TypeName}: (payload: CreateType) =>
+          request<{TypeName}>(`/{table_name}`, {{ method: 'POST', body: JSON.stringify(payload) }}),
+        update{TypeName}: (id: number, payload: UpdateType) =>
+          request<{TypeName}>(`/{table_name}/{{id}}`, {{ method: 'PUT', body: JSON.stringify(payload) }}),
+        delete{TypeName}: (id: number) => request<void>(`/{table_name}/{{id}}`, {{ method: 'DELETE' }})
+      }};
+
+# Integration with project tools
+integrations:
+  development:
+    - command: "docker compose up --build"
+      description: "Test full-stack integration with Docker"
+      
+    - command: "cd api && uv run uvicorn main:app --reload & cd ../web && npm run dev"
+      description: "Run both services locally"
+      
+  testing:
+    - command: "cd api && python -m pytest tests/ && cd ../web && npm run check"
+      description: "Run all tests"
+      
+    - command: "curl http://localhost:8000/todos"
+      description: "Test API endpoint"

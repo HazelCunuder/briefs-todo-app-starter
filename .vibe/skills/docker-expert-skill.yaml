@@ -1,0 +1,279 @@
+name: docker-expert-skill
+version: 1.0.0
+description: |
+  Auto-triggered skill for Docker and containerization tasks. Provides expertise on Dockerfile
+  optimization, docker-compose configuration, and container security best practices.
+
+# Auto-trigger conditions
+triggers:
+  # Trigger on Dockerfile changes
+  - type: file.match
+    patterns: ["**Dockerfile", "**Dockerfile.*"]
+    actions: [create, modify]
+    
+  # Trigger on docker-compose changes
+  - type: file.match
+    patterns: ["**docker-compose.yml", "**docker-compose.*.yml"]
+    actions: [create, modify]
+    
+  # Trigger on nginx configuration changes
+  - type: file.match
+    patterns: ["**nginx.conf", "**nginx.*.conf"]
+    actions: [create, modify]
+    
+  # Trigger on .env file changes
+  - type: file.match
+    patterns: [".env.example", ".env.*"]
+    actions: [create, modify]
+
+# Skill capabilities
+actions:
+  - name: analyze_dockerfile
+    description: Analyze Dockerfile for best practices and optimizations
+    
+  - name: optimize_layers
+    description: Suggest Dockerfile layer caching optimizations
+    
+  - name: check_security
+    description: Check Docker configuration for security issues
+    
+  - name: validate_compose
+    description: Validate docker-compose.yml configuration
+    
+  - name: suggest_improvements
+    description: Suggest improvements for container setup
+
+# Context files to load when triggered
+context:
+  - AGENTS.md
+  - docs/AGENTS.md
+  - docs/TECHNICAL_GUIDE.md
+  - docs/CONVENTIONS.md
+  - docker-compose.yml
+
+# Skill behavior configuration
+config:
+  # Docker best practices to check
+  best_practices:
+    - use_specific_tags
+    - use_non_root_users
+    - minimize_layers
+    - use_multi_stage_builds
+    - clean_cache
+    - use_healthchecks
+    - configure_resource_limits
+    - use_named_volumes
+    - isolate_networks
+    
+  # Security checks
+  security_checks:
+    - no_root_user
+    - no_latest_tag
+    - internal_networks_for_db
+    - read_only_filesystems
+    - resource_limits
+    - healthchecks
+    - restart_policies
+    
+  # Performance checks
+  performance_checks:
+    - layer_caching
+    - image_size
+    - build_cache
+    - parallel_stages
+
+# Response templates
+responses:
+  dockerfile_analysis:
+    template: |
+      ## Dockerfile Analysis
+      
+      **File**: `{file_path}`
+      
+      ### ✅ Following Best Practices
+      {good_practices}
+      
+      ### 🔍 Optimization Opportunities
+      {optimizations}
+      
+      ### ⚠️ Security Concerns
+      {security_issues}
+      
+      ### 📊 Image Size Estimate
+      - Base image: `{base_image}` (~{base_size})
+      - Estimated final size: ~{final_size}
+      - Potential reduction: {reduction_potential}
+      
+      ---
+      *Analysis based on project conventions from `docs/CONVENTIONS.md`*
+    
+  compose_analysis:
+    template: |
+      ## Docker Compose Analysis
+      
+      **File**: `{file_path}`
+      
+      ### ✅ Well Configured
+      {good_config}
+      
+      ### 🔍 Suggestions
+      {suggestions}
+      
+      ### ⚠️ Issues to Address
+      {issues}
+      
+      ### 📋 Service Summary
+      {service_summary}
+      
+      ---
+      *Analysis based on project architecture from `docs/TECHNICAL_GUIDE.md`*
+
+# Project-specific Docker rules
+rules:
+  dockerfile:
+    - name: specific_base_image
+      pattern: "FROM\s+\w+:"  # FROM without tag
+      message: "Always use specific image tags (e.g., python:3.12-slim, not python)"
+      severity: high
+      reference: "docs/CONVENTIONS.md#docker-conventions"
+      
+    - name: non_root_user_required
+      pattern: "^(?!.*USER\s+\w+).*$"  # No USER directive
+      message: "Dockerfiles must create and use a non-root user"
+      severity: critical
+      reference: "docs/TECHNICAL_GUIDE.md#docker-conventions"
+      
+    - name: multi_stage_build
+      pattern: "^(?!.*FROM.*AS\s+\w+).*$"  # No multi-stage build
+      message: "Consider using multi-stage builds to reduce final image size"
+      severity: medium
+      reference: "docs/TECHNICAL_GUIDE.md#docker-conventions"
+      
+    - name: clean_pip_cache
+      pattern: "pip\s+install"  # pip install without --no-cache-dir
+      message: "Use --no-cache-dir with pip install to reduce image size"
+      severity: medium
+      reference: "docs/CONVENTIONS.md#docker-conventions"
+      
+    - name: group_run_commands
+      pattern: "RUN\s+[^&]+"  # RUN commands that could be grouped
+      message: "Group RUN commands to minimize layers and improve caching"
+      severity: low
+      reference: "docs/CONVENTIONS.md#docker-conventions"
+      
+  docker_compose:
+    - name: internal_db_network
+      pattern: "db:\s*"  # Database service without internal network
+      message: "PostgreSQL should use internal network for security"
+      severity: critical
+      reference: "docs/TECHNICAL_GUIDE.md#docker-configuration"
+      
+    - name: healthcheck_required
+      pattern: "db:\s*"  # Database service without healthcheck
+      message: "Database service should have a healthcheck"
+      severity: high
+      reference: "docs/TECHNICAL_GUIDE.md#docker-configuration"
+      
+    - name: resource_limits
+      pattern: "deploy:"  # No deploy section
+      message: "Consider adding resource limits (CPU, memory) for production"
+      severity: medium
+      reference: "docs/CONVENTIONS.md#docker-conventions"
+      
+    - name: restart_policy
+      pattern: "restart:"  # No restart policy
+      message: "Services should have restart: unless-stopped policy"
+      severity: medium
+      reference: "docs/TECHNICAL_GUIDE.md#docker-configuration"
+
+# Dockerfile templates for the project
+templates:
+  api_dockerfile:
+    name: FastAPI Dockerfile
+    description: Optimized Dockerfile for FastAPI service
+    content: |
+      # Stage 1: Build
+      FROM python:3.12-slim AS builder
+      
+      WORKDIR /app
+      
+      # Install build dependencies
+      RUN apt-get update && apt-get install -y --no-install-recommends gcc python3-dev
+      
+      # Copy dependency files
+      COPY pyproject.toml uv.lock ./
+      
+      # Install dependencies
+      RUN uv sync --frozen-lockfile
+      
+      # Stage 2: Runtime
+      FROM python:3.12-slim
+      
+      WORKDIR /app
+      
+      # Copy installed dependencies from builder
+      COPY --from=builder /app/.venv /app/.venv
+      
+      # Copy application code
+      COPY . .
+      
+      # Create non-root user
+      RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+      USER appuser
+      
+      # Environment
+      ENV PYTHONUNBUFFERED=1
+      ENV PYTHONDONTWRITEBYTECODE=1
+      
+      # Run
+      EXPOSE 8000
+      CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    
+  web_dockerfile:
+    name: SvelteKit Dockerfile
+    description: Multi-stage Dockerfile for SvelteKit frontend
+    content: |
+      # Stage 1: Build
+      FROM node:22-alpine AS builder
+      
+      WORKDIR /app
+      
+      # Copy package files
+      COPY package.json package-lock.json ./
+      
+      # Install dependencies
+      RUN npm ci --no-audit --no-fund
+      
+      # Copy application code
+      COPY . .
+      
+      # Build
+      RUN npm run build
+      
+      # Stage 2: Runtime
+      FROM nginxinc/nginx-unprivileged:1.27-alpine
+      
+      # Copy built files
+      COPY --from=builder /app/build /usr/share/nginx/html
+      
+      # Copy nginx configuration
+      COPY nginx.conf /etc/nginx/conf.d/default.conf
+      
+      # Expose
+      EXPOSE 80
+
+# Integration with project tools
+integrations:
+  validation:
+    - command: "docker compose config"
+      description: "Validate docker-compose.yml syntax"
+      
+    - command: "docker build --no-cache ."
+      description: "Test Docker build"
+      
+  security:
+    - command: "docker scan"
+      description: "Scan images for vulnerabilities"
+      
+    - command: "trivy image"
+      description: "Scan with Trivy vulnerability scanner"
