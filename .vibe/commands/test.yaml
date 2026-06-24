@@ -1,0 +1,408 @@
+name: test
+command: /test
+description: |
+  Run comprehensive tests on the To-Do application. Executes linting, type checking,
+  unit tests, integration tests, and end-to-end tests.
+
+# Command type
+manual: true
+
+# Usage
+usage: |
+  /test [scope] [options]
+  
+  Examples:
+    /test
+    /test api
+    /test web
+    /test all --verbose
+    /test --help
+
+# Parameters
+parameters:
+  - name: scope
+    type: string
+    required: false
+    default: all
+    enum: [all, api, web, lint, docker]
+    description: Test scope
+    
+  - name: verbose
+    type: boolean
+    required: false
+    default: false
+    description: Show verbose output
+    alias: [--verbose, -v]
+    
+  - name: watch
+    type: boolean
+    required: false
+    default: false
+    description: Watch for changes and re-run tests
+    alias: [--watch, -w]
+    
+  - name: coverage
+    type: boolean
+    required: false
+    default: false
+    description: Generate test coverage reports
+    alias: [--coverage, -c]
+    
+  - name: help
+    type: boolean
+    required: false
+    default: false
+    description: Show help message
+    alias: [--help, -h]
+
+# Test suites
+test_suites:
+  lint:
+    name: Linting
+    description: Run markdown and YAML linting
+    commands:
+      - "bun run lint"
+    files:
+      - "**.md"
+      - "**.yaml"
+      - "**.yml"
+    
+  api:
+    name: API Tests
+    description: Run FastAPI unit and integration tests
+    commands:
+      - "cd api && python -m pytest tests/ -v"
+    files:
+      - "api/tests/**"
+      - "api/*.py"
+    
+  web:
+    name: Web Tests
+    description: Run SvelteKit and TypeScript tests
+    commands:
+      - "cd web && npm run check"
+      - "cd web && npm run test"
+    files:
+      - "web/tests/**"
+      - "web/src/**"
+    
+  docker:
+    name: Docker Tests
+    description: Test Docker build and container health
+    commands:
+      - "docker compose build"
+      - "docker compose up -d"
+      - "docker compose ps"
+      - "curl -v http://localhost:8000/todos"
+      - "curl -v http://localhost:5173/"
+      - "docker compose down"
+    
+  all:
+    name: All Tests
+    description: Run all test suites
+    commands:
+      - "/test lint"
+      - "/test api"
+      - "/test web"
+      - "/test docker"
+
+# Test execution
+steps:
+  all:
+    - name: lint
+      description: Run linting checks
+      command: "bun run lint"
+      
+    - name: api_unit_tests
+      description: Run API unit tests
+      command: "cd api && python -m pytest tests/test_crud.py tests/test_api.py -v"
+      
+    - name: api_integration_tests
+      description: Run API integration tests
+      command: "cd api && python -m pytest tests/ -v"
+      
+    - name: web_type_check
+      description: Run TypeScript type checking
+      command: "cd web && npm run check"
+      
+    - name: web_unit_tests
+      description: Run frontend unit tests
+      command: "cd web && npm run test"
+      
+    - name: docker_build
+      description: Test Docker build
+      command: "docker compose build"
+      
+    - name: docker_health
+      description: Test Docker container health
+      commands:
+        - "docker compose up -d"
+        - "sleep 10"
+        - "curl -v http://localhost:8000/todos || true"
+        - "curl -v http://localhost:5173/ || true"
+        - "docker compose down"
+    
+  api:
+    - name: api_unit_tests
+      description: Run API unit tests
+      command: "cd api && python -m pytest tests/test_crud.py -v"
+      
+    - name: api_integration_tests
+      description: Run API integration tests
+      command: "cd api && python -m pytest tests/test_api.py -v"
+      
+    - name: api_all_tests
+      description: Run all API tests
+      command: "cd api && python -m pytest tests/ -v"
+    
+  web:
+    - name: web_type_check
+      description: Run TypeScript type checking
+      command: "cd web && npm run check"
+      
+    - name: web_unit_tests
+      description: Run frontend unit tests
+      command: "cd web && npm run test"
+    
+  lint:
+    - name: markdown_lint
+      description: Run markdown linting
+      command: "bun run lint:md"
+      
+    - name: yaml_lint
+      description: Run YAML linting
+      command: "bun run lint:yaml"
+      
+    - name: all_lint
+      description: Run all linting
+      command: "bun run lint"
+    
+  docker:
+    - name: docker_build
+      description: Test Docker build
+      command: "docker compose build"
+      
+    - name: docker_health
+      description: Test Docker container health
+      commands:
+        - "docker compose up -d"
+        - "sleep 10"
+        - "curl -v http://localhost:8000/todos || true"
+        - "curl -v http://localhost:5173/ || true"
+        - "docker compose down"
+
+# Coverage configuration
+coverage:
+  api:
+    command: "cd api && python -m pytest tests/ --cov=api --cov-report=html"
+    output: "api/htmlcov/index.html"
+    
+  web:
+    command: "cd web && npm run test:coverage"
+    output: "web/coverage/index.html"
+
+# Response templates
+responses:
+  help:
+    template: |
+      ## /test Command Help
+      
+      Run comprehensive tests on the To-Do application.
+      
+      ### Usage
+      ```
+      /test [scope] [options]
+      ```
+      
+      ### Scopes
+      - `all` - Run all tests (default)
+      - `api` - Run API tests only
+      - `web` - Run web tests only
+      - `lint` - Run linting only
+      - `docker` - Run Docker tests only
+      
+      ### Options
+      - `--verbose, -v` - Show verbose output
+      - `--watch, -w` - Watch for changes and re-run tests
+      - `--coverage, -c` - Generate test coverage reports
+      - `--help, -h` - Show this help message
+      
+      ### Examples
+      ```
+      /test
+      /test api
+      /test web --verbose
+      /test all --coverage
+      ```
+      
+      ### What's Tested
+      
+      | Scope | Tests | Files |
+      |-------|-------|-------|
+      | lint | Markdown, YAML formatting | `**.md`, `**.yaml` |
+      | api | Unit tests, integration tests | `api/tests/**` |
+      | web | Type checking, unit tests | `web/tests/**` |
+      | docker | Build, container health | `docker-compose.yml` |
+      
+      ### Test Commands
+      ```bash
+      # Linting
+      bun run lint
+      bun run lint:md
+      bun run lint:yaml
+      
+      # API tests
+      cd api && python -m pytest tests/
+      
+      # Web tests
+      cd web && npm run check
+      cd web && npm run test
+      
+      # Docker tests
+      docker compose build
+      docker compose up -d
+      ```
+      
+      ---
+      *For more information, see docs/TECHNICAL_GUIDE.md#testing-strategy*
+    
+  summary:
+    template: |
+      ## Test Results Summary
+      
+      **Scope**: {scope}
+      **Timestamp**: {timestamp}
+      **Duration**: {duration}
+      
+      ### 📊 Results
+      
+      | Suite | Status | Tests | Passed | Failed | Skipped |
+      |-------|--------|-------|--------|--------|--------|
+      {results_table}
+      
+      ### ✅ Passed
+      {passed_tests}
+      
+      ### ❌ Failed
+      {failed_tests}
+      
+      ### ⏭️ Skipped
+      {skipped_tests}
+      
+      ### 📈 Coverage
+      {coverage_report}
+      
+      ---
+      *Overall Status: {overall_status}*
+    
+  detailed:
+    template: |
+      ## Detailed Test Results
+      
+      **Suite**: {suite}
+      **Status**: {status}
+      **Duration**: {duration}
+      
+      ### Tests
+      {tests}
+      
+      ### Output
+      ```
+      {output}
+      ```
+      
+      ---
+    
+  failure:
+    template: |
+      ❌ **Tests Failed**
+      
+      **Suite**: {suite}
+      **Failed Tests**: {failed_count}
+      
+      ### Failures
+      {failures}
+      
+      ### Suggestions
+      {suggestions}
+      
+      ---
+      *Fix the failures and run tests again.*
+    
+  success:
+    template: |
+      ✅ **All Tests Passed**
+      
+      **Scope**: {scope}
+      **Total Tests**: {total}
+      **Duration**: {duration}
+      
+      ### Results
+      {results}
+      
+      ### Coverage
+      {coverage}
+      
+      ---
+      *Great job! All tests are passing.*
+
+# Integration with project
+integration:
+  # Context files to load
+  context:
+    - AGENTS.md
+    - docs/AGENTS.md
+    - docs/TECHNICAL_GUIDE.md
+    - docs/CONVENTIONS.md
+    
+  # Related files
+  related_files:
+    - api/tests/
+    - web/tests/
+    - .markdownlint.json
+    - .yamllint.yml
+    - package.json
+    - api/pyproject.toml
+    
+  # Related commands
+  related_commands:
+    - "bun run lint"  # Run linting
+    - "cd api && python -m pytest tests/"  # Run API tests
+    - "cd web && npm run check"  # Type checking
+    - "cd web && npm run test"  # Run web tests
+    - "docker compose build"  # Test Docker build
+
+# Configuration
+config:
+  # Test timeout (in seconds)
+  timeout: 300
+  
+  # Maximum parallel tests
+  max_parallel: 4
+  
+  # Retry failed tests
+  retry_failed: true
+  retry_count: 2
+  
+  # Coverage threshold
+  coverage_threshold:
+    api: 80
+    web: 80
+  
+  # Verbose output
+  verbose: false
+
+# Watch mode configuration
+watch:
+  enabled: false
+  paths:
+    - "api/**/*.py"
+    - "web/src/**/*.{ts,svelte}"
+    - "**.md"
+    - "**.yaml"
+  ignore:
+    - "node_modules/**"
+    - ".venv/**"
+    - "dist/**"
+    - "build/**"
+  delay: 1000  # ms

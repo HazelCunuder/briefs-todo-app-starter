@@ -1,0 +1,321 @@
+name: deploy
+command: /deploy
+description: |
+  Deploy the To-Do application to production or staging. Handles Docker image building,
+  pushing to registry, and deploying with proper configuration.
+
+# Command type
+manual: true
+
+# Usage
+usage: |
+  /deploy [environment] [options]
+  
+  Examples:
+    /deploy production
+    /deploy staging
+    /deploy production --dry-run
+    /deploy --help
+
+# Parameters
+parameters:
+  - name: environment
+    type: string
+    required: false
+    default: production
+    enum: [production, staging, development]
+    description: Deployment environment
+    
+  - name: dry_run
+    type: boolean
+    required: false
+    default: false
+    description: Perform a dry run without actually deploying
+    alias: [--dry-run, -n]
+    
+  - name: force
+    type: boolean
+    required: false
+    default: false
+    description: Force deployment even if tests fail
+    alias: [--force, -f]
+    
+  - name: verbose
+    type: boolean
+    required: false
+    default: false
+    description: Show verbose output
+    alias: [--verbose, -v]
+    
+  - name: help
+    type: boolean
+    required: false
+    default: false
+    description: Show help message
+    alias: [--help, -h]
+
+# Pre-deployment checks
+pre_checks:
+  - name: git_status
+    description: Check that there are no uncommitted changes
+    command: "git status --porcelain"
+    expected: empty
+    message: "❌ Uncommitted changes detected. Commit or stash them first."
+    
+  - name: lint
+    description: Run linting checks
+    command: "bun run lint"
+    expected: success
+    message: "❌ Linting failed. Fix linting errors first."
+    
+  - name: type_check
+    description: Run TypeScript type checking
+    command: "cd web && npm run check"
+    expected: success
+    message: "❌ Type checking failed. Fix type errors first."
+    
+  - name: build
+    description: Test frontend build
+    command: "cd web && npm run build"
+    expected: success
+    message: "❌ Frontend build failed. Fix build errors first."
+    
+  - name: api_tests
+    description: Run API tests
+    command: "cd api && python -m pytest tests/"
+    expected: success
+    message: "❌ API tests failed. Fix tests first."
+    
+  - name: docker_build
+    description: Test Docker build
+    command: "docker compose build"
+    expected: success
+    message: "❌ Docker build failed. Fix Docker configuration first."
+
+# Deployment steps
+steps:
+  production:
+    - name: build_images
+      description: Build Docker images for production
+      commands:
+        - "docker compose -f docker-compose.yml -f docker-compose.prod.yml build"
+      
+    - name: run_tests
+      description: Run production tests
+      commands:
+        - "docker compose -f docker-compose.yml -f docker-compose.prod.yml run api pytest tests/"
+      
+    - name: push_images
+      description: Push images to registry
+      commands:
+        - "docker tag todo-app-api:latest ${DOCKER_REGISTRY}/todo-app-api:${VERSION}"
+        - "docker tag todo-app-web:latest ${DOCKER_REGISTRY}/todo-app-web:${VERSION}"
+        - "docker push ${DOCKER_REGISTRY}/todo-app-api:${VERSION}"
+        - "docker push ${DOCKER_REGISTRY}/todo-app-web:${VERSION}"
+      
+    - name: deploy_infrastructure
+      description: Deploy infrastructure (if using Kubernetes/ECS)
+      commands:
+        - "kubectl apply -f k8s/production/"
+        - "kubectl rollout status deployment/todo-app -n production"
+      
+    - name: verify_deployment
+      description: Verify deployment was successful
+      commands:
+        - "curl -v https://api.yourdomain.com/todos"
+        - "curl -v https://yourdomain.com/"
+      
+  staging:
+    - name: build_images
+      description: Build Docker images for staging
+      commands:
+        - "docker compose -f docker-compose.yml -f docker-compose.staging.yml build"
+      
+    - name: push_images
+      description: Push images to staging registry
+      commands:
+        - "docker tag todo-app-api:latest ${DOCKER_REGISTRY}/todo-app-api:staging-${VERSION}"
+        - "docker tag todo-app-web:latest ${DOCKER_REGISTRY}/todo-app-web:staging-${VERSION}"
+        - "docker push ${DOCKER_REGISTRY}/todo-app-api:staging-${VERSION}"
+        - "docker push ${DOCKER_REGISTRY}/todo-app-web:staging-${VERSION}"
+      
+    - name: deploy_to_staging
+      description: Deploy to staging environment
+      commands:
+        - "kubectl apply -f k8s/staging/"
+        - "kubectl rollout status deployment/todo-app -n staging"
+      
+    - name: run_smoke_tests
+      description: Run smoke tests on staging
+      commands:
+        - "curl -v https://staging.yourdomain.com/api/todos"
+        - "curl -v https://staging.yourdomain.com/"
+
+# Environment configuration
+environments:
+  production:
+    registry: "${DOCKER_REGISTRY:-ghcr.io/hazelcunuder}"
+    version: "${VERSION:-latest}"
+    domain: "${PRODUCTION_DOMAIN:-yourdomain.com}"
+    database_url: "${PRODUCTION_DB_URL}"
+    
+  staging:
+    registry: "${DOCKER_REGISTRY:-ghcr.io/hazelcunuder}"
+    version: "${VERSION:-latest}"
+    domain: "${STAGING_DOMAIN:-staging.yourdomain.com}"
+    database_url: "${STAGING_DB_URL}"
+    
+  development:
+    registry: "localhost:5000"
+    version: "dev"
+    domain: "localhost"
+    database_url: "sqlite:///./todo.db"
+
+# Response templates
+responses:
+  help:
+    template: |
+      ## /deploy Command Help
+      
+      Deploy the To-Do application to various environments.
+      
+      ### Usage
+      ```
+      /deploy [environment] [options]
+      ```
+      
+      ### Environments
+      - `production` - Deploy to production (default)
+      - `staging` - Deploy to staging
+      - `development` - Deploy locally
+      
+      ### Options
+      - `--dry-run, -n` - Perform a dry run without deploying
+      - `--force, -f` - Force deployment even if checks fail
+      - `--verbose, -v` - Show verbose output
+      - `--help, -h` - Show this help message
+      
+      ### Examples
+      ```
+      /deploy production
+      /deploy staging --dry-run
+      /deploy --verbose
+      ```
+      
+      ### Pre-deployment Checks
+      The following checks are performed before deployment:
+      - Git status (no uncommitted changes)
+      - Linting (bun run lint)
+      - Type checking (npm run check)
+      - Build test (npm run build)
+      - API tests (pytest)
+      - Docker build
+      
+      ### Environment Variables
+      Set these before deploying:
+      - `DOCKER_REGISTRY` - Docker registry URL
+      - `VERSION` - Version tag to use
+      - `PRODUCTION_DB_URL` - Production database URL
+      - `STAGING_DB_URL` - Staging database URL
+      
+      ---
+      *For more information, see docs/TECHNICAL_GUIDE.md#deployment*
+    
+  success:
+    template: |
+      ✅ **Deployment Successful**
+      
+      **Environment**: {environment}
+      **Version**: {version}
+      **Timestamp**: {timestamp}
+      
+      ### Deployment Summary
+      - Images built: {images_built}
+      - Tests passed: {tests_passed}
+      - Images pushed: {images_pushed}
+      - Deployment status: {status}
+      
+      ### Access Points
+      {access_points}
+      
+      ### Next Steps
+      {next_steps}
+      
+      ---
+      *Deployment completed in {duration}*
+    
+  failure:
+    template: |
+      ❌ **Deployment Failed**
+      
+      **Environment**: {environment}
+      **Step**: {failed_step}
+      **Error**: {error}
+      
+      ### Failed Checks
+      {failed_checks}
+      
+      ### Logs
+      {logs}
+      
+      ### Suggestions
+      {suggestions}
+      
+      ---
+      *Deployment failed after {duration}*
+    
+  dry_run:
+    template: |
+      🔍 **Dry Run Results**
+      
+      **Environment**: {environment}
+      
+      ### Pre-deployment Checks
+      {check_results}
+      
+      ### Would Perform
+      {would_perform}
+      
+      ### Estimated Duration
+      {estimated_duration}
+      
+      ---
+      *This was a dry run. No changes were made.*
+
+# Integration with project
+integration:
+  # Context files to load
+  context:
+    - AGENTS.md
+    - docs/AGENTS.md
+    - docs/TECHNICAL_GUIDE.md
+    - docker-compose.yml
+    - .env.example
+    
+  # Related files
+  related_files:
+    - docker-compose.yml
+    - docker-compose.prod.yml
+    - docker-compose.staging.yml
+    - k8s/
+    - .github/workflows/
+    
+  # Related commands
+  related_commands:
+    - "docker compose up --build"  # Local deployment
+    - "docker compose down"  # Stop services
+    - "docker system prune"  # Clean up
+
+# Configuration
+config:
+  # Timeout for deployment (in minutes)
+  timeout: 30
+  
+  # Maximum retries
+  max_retries: 3
+  
+  # Health check timeout (in seconds)
+  health_check_timeout: 60
+  
+  # Rollback on failure
+  rollback_on_failure: true
