@@ -328,4 +328,262 @@ export const api = {
 
 ---
 
+## 🤖 AI Agent Context
+
+### Component Usage Guide for AI Agents
+
+This reference provides AI agents with quick access to all API endpoints and UI components in the project.
+
+#### API Endpoints Quick Reference
+
+| Method | Endpoint | Request | Response | Use Case |
+|--------|----------|---------|----------|----------|
+| GET | `/todos` | - | `TodoResponse[]` | List all tasks |
+| GET | `/todos/{id}` | - | `TodoResponse` | Get specific task |
+| POST | `/todos` | `TodoCreate` | `TodoResponse` | Create new task |
+| PUT | `/todos/{id}` | `TodoUpdate` | `TodoResponse` | Update task |
+| DELETE | `/todos/{id}` | - | 204 | Delete task |
+
+#### Common API Patterns
+
+##### Fetching all todos
+```typescript
+// Using the typed client
+import { api } from '$lib/api';
+
+const todos = await api.listTodos();
+
+// Direct fetch (not recommended)
+const response = await fetch('/api/todos');
+const todos = await response.json();
+```
+
+##### Creating a todo
+```typescript
+import { api } from '$lib/api';
+
+const newTodo = await api.createTodo({
+  title: 'Buy groceries',
+  description: 'Milk, eggs, bread'
+});
+```
+
+##### Updating a todo
+```typescript
+import { api } from '$lib/api';
+
+const updated = await api.updateTodo(1, {
+  completed: true
+});
+```
+
+##### Deleting a todo
+```typescript
+import { api } from '$lib/api';
+
+await api.deleteTodo(1);
+```
+
+#### Svelte Component Reference
+
+##### TodoItem Component
+
+**Location**: `web/src/lib/components/TodoItem.svelte`
+
+**Props**:
+```typescript
+interface Props {
+  todo: Todo;                    // The todo item to display
+  onToggle: (id: number, completed: boolean) => void | Promise<void>;
+  onSave: (id: number, patch: TodoUpdate) => void | Promise<void>;
+  onDelete: (id: number) => void | Promise<void>;
+}
+```
+
+**Usage**:
+```svelte
+<script lang="ts">
+  import TodoItem from '$lib/components/TodoItem.svelte';
+  import type { Todo, TodoUpdate } from '$lib/types';
+  
+  let todos: Todo[] = [];
+  
+  async function toggleTodo(id: number, completed: boolean) {
+    // Update logic
+  }
+  
+  async function saveTodo(id: number, patch: TodoUpdate) {
+    // Save logic
+  }
+  
+  async function deleteTodo(id: number) {
+    // Delete logic
+  }
+</script>
+
+<ul>
+  {#each todos as todo (todo.id)}
+    <TodoItem
+      todo={todo}
+      onToggle={toggleTodo}
+      onSave={saveTodo}
+      onDelete={deleteTodo}
+    />
+  {/each}
+</ul>
+```
+
+##### Page Layout Component
+
+**Location**: `web/src/routes/+layout.svelte`
+
+**Purpose**: Root layout that wraps all pages
+
+**Key Features**:
+- Imports Tailwind CSS (`app.css`)
+- Provides consistent page structure
+- Handles global state if needed
+
+##### Main Page Component
+
+**Location**: `web/src/routes/+page.svelte`
+
+**State Management**:
+- `todos`: Array of all todo items
+- `filter`: Current filter ('all' | 'active' | 'completed')
+- `newTitle`: Input for new todo title
+
+**Derived Values**:
+- `visibleTodos`: Filtered list based on current filter
+
+**Effects**:
+- Load todos on mount
+
+**Handlers**:
+- `createTodo`: Add new todo
+- `toggleTodo`: Toggle completion status
+- `deleteTodo`: Remove todo
+
+#### TypeScript Types Reference
+
+**Location**: `web/src/lib/types.ts`
+
+**Core Types**:
+```typescript
+export interface Todo {
+  id: number;
+  title: string;
+  description: string | null;
+  completed: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface TodoCreate {
+  title: string;
+  description?: string | null;
+  completed?: boolean;
+}
+
+export interface TodoUpdate {
+  title?: string;
+  description?: string | null;
+  completed?: boolean;
+}
+
+export type Filter = 'all' | 'active' | 'completed';
+```
+
+**Usage Patterns**:
+```typescript
+// Typing state
+let todos = $state<Todo[]>([]);
+
+// Typing props
+let { todo }: { todo: Todo } = $props();
+
+// Typing function parameters
+function handleTodo(todo: Todo) { ... }
+```
+
+#### Python Model Reference
+
+**Location**: `api/models.py`
+
+**Todo Model**:
+```python
+class Todo(Base):
+    __tablename__ = "todos"
+    
+    id: int              # Primary key
+    title: str           # Required, max 200 chars
+    description: str     # Optional, max 500 chars
+    completed: bool      # Default: False
+    created_at: datetime # Auto-set on creation
+    updated_at: datetime # Auto-set on update
+```
+
+**Common Queries**:
+```python
+# Get all todos (most recent first)
+todos = db.query(Todo).order_by(Todo.created_at.desc()).all()
+
+# Get todo by ID
+todo = db.query(Todo).filter(Todo.id == todo_id).first()
+
+# Get incomplete todos
+todos = db.query(Todo).filter(Todo.completed == False).all()
+
+# Get todos by title search
+todos = db.query(Todo).filter(Todo.title.ilike(f"%{search}%")).all()
+```
+
+#### Pydantic Schema Reference
+
+**Location**: `api/schemas.py`
+
+**Schemas**:
+```python
+# Base schema (shared fields)
+class TodoBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=500)
+    completed: bool = False
+
+# Create schema (all fields optional except title)
+class TodoCreate(TodoBase):
+    pass
+
+# Update schema (all fields optional)
+class TodoUpdate(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=500)
+    completed: bool | None = None
+
+# Response schema (includes ID and timestamps)
+class TodoResponse(TodoBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime | None = None
+    
+    model_config = {"from_attributes": True}
+```
+
+**Validation**:
+```python
+# Automatic validation in FastAPI
+@app.post("/todos")
+def create_todo(todo: TodoCreate, db: Session = Depends(get_db)):
+    # todo is already validated by Pydantic
+    return crud.create_todo(db, todo)
+
+# Manual validation
+try:
+    todo = TodoCreate(title="Test", description="Desc")
+except ValidationError as e:
+    print(e.errors())
+```
+
+---
+
 *Last updated: 2026-04-29*

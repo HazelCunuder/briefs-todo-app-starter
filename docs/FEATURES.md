@@ -77,4 +77,145 @@ Each item is linked to a GitHub issue for tracking and status.
 
 ---
 
+## 🤖 AI Agent Context
+
+### Feature Development Guide for AI Agents
+
+When implementing new features, AI agents should follow this process:
+
+#### 1. Understand the Feature
+- Review the epic and user stories in this file
+- Check `docs/TASKS.md` for implementation tasks
+- Review existing similar features for patterns
+
+#### 2. Break Down the Feature
+- Identify API changes needed (new endpoints, schemas, models)
+- Identify frontend changes needed (new components, pages, state)
+- Identify database changes needed (new tables, migrations)
+- Identify documentation updates needed
+
+#### 3. Implement the Feature
+- Start with backend changes (models, schemas, CRUD, routes)
+- Then implement frontend changes (types, API client, components, pages)
+- Finally update documentation
+
+#### 4. Test the Feature
+- Test API endpoints with curl or Swagger UI
+- Test frontend functionality in browser
+- Run all tests (`bun run lint`, `npm run check`, `pytest`)
+- Test with Docker (`docker compose up --build`)
+
+### Feature Implementation Patterns
+
+#### Adding a New Entity (e.g., Categories)
+
+**Backend (API)**:
+1. Add model to `api/models.py`:
+   ```python
+   class Category(Base):
+       __tablename__ = "categories"
+       id = Column(Integer, primary_key=True)
+       name = Column(String(100), unique=True, nullable=False)
+   ```
+
+2. Add schemas to `api/schemas.py`:
+   ```python
+   class CategoryCreate(BaseModel):
+       name: str = Field(..., min_length=1, max_length=100)
+   
+   class CategoryResponse(CategoryCreate):
+       id: int
+   ```
+
+3. Add CRUD to `api/crud.py`:
+   ```python
+   def get_categories(db: Session) -> list[Category]:
+       return db.query(Category).all()
+   
+   def create_category(db: Session, category: CategoryCreate) -> Category:
+       db_category = Category(**category.model_dump())
+       db.add(db_category)
+       db.commit()
+       db.refresh(db_category)
+       return db_category
+   ```
+
+4. Add routes to `api/main.py`:
+   ```python
+   @app.get("/categories", response_model=list[CategoryResponse])
+   def list_categories(db: Session = Depends(get_db)):
+       return crud.get_categories(db)
+   
+   @app.post("/categories", response_model=CategoryResponse, status_code=201)
+   def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
+       return crud.create_category(db, category)
+   ```
+
+**Frontend (Web)**:
+1. Add types to `web/src/lib/types.ts`:
+   ```typescript
+   export interface Category {
+       id: number;
+       name: string;
+   }
+   ```
+
+2. Add API methods to `web/src/lib/api.ts`:
+   ```typescript
+   export const api = {
+       // ... existing methods
+       listCategories: () => request<Category[]>('/categories'),
+       createCategory: (payload: CategoryCreate) =>
+           request<Category>('/categories', { method: 'POST', body: JSON.stringify(payload) }),
+   };
+   ```
+
+3. Create component in `web/src/lib/components/CategoryList.svelte`
+4. Use component in appropriate page
+
+#### Adding Authentication
+
+**Backend**:
+1. Add user model and auth dependencies
+2. Add auth routes (login, register, logout)
+3. Add middleware for protected routes
+4. Add JWT token handling
+
+**Frontend**:
+1. Add auth state management
+2. Add login/register forms
+3. Add protected route guards
+4. Add auth headers to API client
+
+#### Adding Real-time Updates
+
+**Backend**:
+1. Add WebSocket endpoint
+2. Implement broadcast for changes
+3. Add connection management
+
+**Frontend**:
+1. Add WebSocket client
+2. Handle real-time updates
+3. Update UI reactively
+
+### Feature Status Tracking
+
+When working on features, AI agents should:
+
+1. **Check current status** in this file
+2. **Update status** when starting work (add `[x]` when complete)
+3. **Create implementation tasks** in `docs/TASKS.md`
+4. **Link to GitHub issues** when available
+
+### Prioritization Guide
+
+| Priority | When to Use | Examples |
+|----------|-------------|----------|
+| High | Core functionality, blocking issues | Database setup, CRUD operations |
+| Medium | Important but not blocking | Filtering, sorting, search |
+| Low | Nice-to-have, enhancements | Animations, advanced styling |
+
+---
+
 *Status is managed directly on GitHub issues.*

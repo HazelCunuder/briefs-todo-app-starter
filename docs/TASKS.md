@@ -99,4 +99,177 @@ Project task tracking based on the project brief.
 
 ---
 
+## 🤖 AI Agent Context
+
+### Task Management for AI Agents
+
+When working on tasks from this file, AI agents should follow this workflow:
+
+#### 1. Select a Task
+- Choose an unchecked task (`[ ]`)
+- Review the task description
+- Check dependencies (other tasks that must be completed first)
+
+#### 2. Understand the Context
+- Read relevant documentation in `docs/`
+- Review existing code for patterns
+- Check related tasks for context
+
+#### 3. Implement the Task
+- Follow conventions from `docs/CONVENTIONS.md`
+- Use patterns from existing code
+- Make minimal, focused changes
+
+#### 4. Test the Implementation
+- Run relevant tests
+- Test manually if needed
+- Verify with Docker if applicable
+
+#### 5. Update Task Status
+- Mark task as complete (`[x]`) when done
+- Update any related documentation
+- Commit changes with proper message
+
+### Task Prioritization
+
+AI agents should prioritize tasks in this order:
+
+1. **Unchecked tasks in Part 1** (Multi-Container Application)
+2. **Unchecked tasks in Part 2** (Security and Optimization)
+3. **Unchecked tasks in Part 3** (Cloud Deployment - Optional)
+
+### Task Dependencies
+
+Some tasks depend on others. AI agents should:
+
+1. **Check for dependencies** before starting a task
+2. **Complete dependencies first** if they're unchecked
+3. **Ask for clarification** if dependencies are unclear
+
+#### Dependency Map
+
+```text
+PostgreSQL Setup
+    └── FastAPI Dockerization (depends on DB)
+        └── Web Dockerization (depends on API)
+            └── Docker Compose Orchestration (depends on all services)
+
+Container Security
+    └── Orchestration Security (both use Docker)
+
+Cloud Deployment
+    └── All previous parts (depends on complete local setup)
+```
+
+### Task Implementation Patterns
+
+#### Docker-related Tasks
+
+```dockerfile
+# ✅ Good Dockerfile pattern
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install dependencies first (layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Run
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+#### Security-related Tasks
+
+```yaml
+# ✅ Good security pattern in docker-compose.yml
+services:
+  db:
+    image: postgres:16-alpine
+    networks:
+      - backend
+    internal: true  # Not exposed to host or external
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}  # From .env, not hardcoded
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+```
+
+#### Testing Tasks
+
+```bash
+# ✅ Good testing pattern
+# 1. Lint first
+bun run lint
+
+# 2. Type check frontend
+cd web && npm run check
+
+# 3. Build frontend
+cd web && npm run build
+
+# 4. Test API
+cd api && python -m pytest tests/
+
+# 5. Test with Docker
+docker compose up --build
+```
+
+### Task Completion Checklist
+
+Before marking a task as complete (`[x]`), verify:
+
+- [ ] Code follows project conventions
+- [ ] All tests pass
+- [ ] Documentation is updated (if needed)
+- [ ] No secrets are committed
+- [ ] No `.env` files are committed
+- [ ] Changes are minimal and focused
+- [ ] Docker builds succeed (if applicable)
+
+### Common Task Patterns
+
+#### "Create X" Tasks
+- Create the file in the appropriate location
+- Follow existing patterns in similar files
+- Add necessary imports/exports
+- Update any references or documentation
+
+#### "Configure X" Tasks
+- Modify existing configuration files
+- Follow existing configuration patterns
+- Ensure security best practices
+- Test the configuration
+
+#### "Test X" Tasks
+- Write tests in appropriate test file
+- Follow existing test patterns
+- Test both success and error cases
+- Ensure tests pass
+
+#### "Document X" Tasks
+- Add documentation to appropriate file
+- Follow existing documentation style
+- Include code examples where helpful
+- Update table of contents if needed
+
+### Task Tracking Tips
+
+1. **Use GitHub issues** for tracking complex tasks
+2. **Break large tasks** into smaller subtasks
+3. **Update status regularly** in this file
+4. **Link to commits/PRs** when available
+5. **Review completed tasks** periodically
+
+---
+
 *Last updated: 2026-04-29*

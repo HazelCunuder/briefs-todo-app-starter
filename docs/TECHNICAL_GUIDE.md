@@ -359,4 +359,219 @@ git push origin feature/description
 
 ---
 
+## 🤖 AI Agent Context
+
+### Development Workflow for AI Agents
+
+When working on this project, AI agents should follow this workflow:
+
+#### 1. Understanding the Task
+- Read the root `AGENTS.md` for static context
+- Read `docs/AGENTS.md` for hierarchical context
+- Review relevant documentation files in `docs/`
+- Check existing code for patterns
+
+#### 2. Making Changes
+- Follow conventions from `docs/CONVENTIONS.md`
+- Use Svelte 5 runes (NO legacy `$:` syntax)
+- Add type hints to all Python functions
+- Use explicit types in TypeScript
+- Update documentation if behavior changes
+
+#### 3. Testing Changes
+- Run `bun run lint` for markdown and YAML
+- Run `cd web && npm run check` for TypeScript
+- Run `cd web && npm run build` for frontend build
+- Run `cd api && python -m pytest tests/` for API tests
+- Test with `docker compose up --build`
+
+#### 4. Committing Changes
+- Use `bun run commit` for interactive gitmoji
+- Or use Gitmoji/Conventional Commit format
+- Ensure no secrets are committed
+- Ensure `.env` files are not committed
+
+### Common Patterns Reference
+
+#### API Pattern (FastAPI + SQLAlchemy)
+
+```python
+# Pattern: Route → Schema → CRUD → Model
+
+# 1. Define schema (schemas.py)
+class TodoCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+
+# 2. Define model (models.py)
+class Todo(Base):
+    __tablename__ = "todos"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(200), nullable=False)
+
+# 3. Define CRUD (crud.py)
+def create_todo(db: Session, todo: TodoCreate) -> Todo:
+    db_todo = Todo(**todo.model_dump())
+    db.add(db_todo)
+    db.commit()
+    db.refresh(db_todo)
+    return db_todo
+
+# 4. Define route (main.py)
+@app.post("/todos", response_model=TodoResponse, status_code=201)
+def create_todo_route(todo: TodoCreate, db: Session = Depends(get_db)):
+    return crud.create_todo(db, todo)
+```
+
+#### Frontend Pattern (SvelteKit + Typed API)
+
+```typescript
+// Pattern: Types → API Client → Component → Page
+
+// 1. Define types (types.ts)
+export interface Todo {
+  id: number;
+  title: string;
+  completed: boolean;
+}
+
+// 2. Define API client (api.ts)
+export const api = {
+  listTodos: () => request<Todo[]>('/todos'),
+  createTodo: (payload: TodoCreate) =>
+    request<Todo>('/todos', { method: 'POST', body: JSON.stringify(payload) })
+};
+
+// 3. Use in component (TodoItem.svelte)
+let { todo, onToggle }: { todo: Todo; onToggle: (id: number) => void } = $props();
+
+// 4. Use in page (+page.svelte)
+let todos = $state<Todo[]>([]);
+$effect(() => {
+  api.listTodos().then((list) => (todos = list));
+});
+```
+
+### Debugging Guide
+
+#### API Debugging
+
+1. **Check if API is running**:
+   ```bash
+   curl -v http://localhost:8000/todos
+   ```
+
+2. **View interactive docs**:
+   - http://localhost:8000/docs (Swagger UI)
+   - http://localhost:8000/redoc (ReDoc)
+
+3. **Check logs**:
+   ```bash
+   docker compose logs -f api
+   ```
+
+4. **Test with Python**:
+   ```python
+   from fastapi.testclient import TestClient
+   from main import app
+   client = TestClient(app)
+   response = client.get("/todos")
+   print(response.json())
+   ```
+
+#### Frontend Debugging
+
+1. **Check if dev server is running**:
+   ```bash
+   curl -v http://localhost:5173
+   ```
+
+2. **Check logs**:
+   ```bash
+   docker compose logs -f web
+   ```
+
+3. **Type checking**:
+   ```bash
+   cd web && npm run check
+   ```
+
+4. **Build test**:
+   ```bash
+   cd web && npm run build
+   ```
+
+#### Database Debugging
+
+1. **SQLite (development)**:
+   ```bash
+   sqlite3 api/todo.db "SELECT * FROM todos;"
+   ```
+
+2. **PostgreSQL (Docker)**:
+   ```bash
+   docker compose exec db psql -U todoapp -d tododb -c "SELECT * FROM todos;"
+   ```
+
+3. **Check connection**:
+   ```python
+   from database import engine
+   with engine.connect() as conn:
+       print(conn.execute("SELECT 1").scalar())
+   ```
+
+### Performance Tips
+
+#### API Performance
+- Use `select()` for read-only queries:
+  ```python
+  # ✅ Good - explicit select
+  todos = db.query(Todo).select().all()
+  
+  # ❌ Avoid - selects all columns
+  todos = db.query(Todo).all()
+  ```
+
+- Add indexes for frequently queried columns:
+  ```python
+  class Todo(Base):
+      __tablename__ = "todos"
+      id = Column(Integer, primary_key=True, index=True)
+      created_at = Column(DateTime, index=True)  # Add index
+  ```
+
+- Use connection pooling (SQLAlchemy does this by default)
+
+#### Frontend Performance
+- Use `$derived` for computed values:
+  ```svelte
+  # ✅ Good - reactive and efficient
+  const visibleTodos = $derived.by(() => todos.filter(t => !t.completed));
+  
+  # ❌ Avoid - re-computes on every render
+  $: visibleTodos = todos.filter(t => !t.completed);
+  ```
+
+- Use `$state` for local component state:
+  ```svelte
+  # ✅ Good - explicit state
+  let editing = $state(false);
+  
+  # ❌ Avoid - legacy syntax
+  let editing = false;
+  ```
+
+- Optimize bundle size with Vite:
+  ```javascript
+  // vite.config.ts
+  export default defineConfig({
+    build: {
+      minify: true,
+      sourcemap: false  // Disable in production
+    }
+  });
+  ```
+
+---
+
 *Last updated: 2026-04-29*

@@ -201,4 +201,152 @@ Default font stack is the Tailwind system stack (`ui-sans-serif`, `system-ui`, �
 
 ---
 
+## 🤖 AI Agent Context
+
+### UI Development Guidelines for AI Agents
+
+When creating or modifying UI components, AI agents should follow these design principles:
+
+#### Component Creation Checklist
+
+1. **Use Tailwind v4 utility classes** (no custom CSS unless necessary)
+2. **Follow the existing color palette** (slate/indigo/red)
+3. **Use semantic HTML** with proper ARIA labels
+4. **Ensure accessibility** (keyboard navigation, focus states)
+5. **Follow the spacing system** (use existing spacing values)
+6. **Use Svelte 5 runes** (`$state`, `$derived`, `$effect`, `$props`)
+
+#### Color Usage Guide
+
+| Use Case | Recommended Class | Example |
+|----------|-------------------|---------|
+| Primary action button | `bg-indigo-600 hover:bg-indigo-700` | Add task button |
+| Secondary action | `border-slate-300 hover:bg-slate-50` | Cancel button |
+| Card background | `bg-white` | Task card |
+| Page background | `bg-slate-50` | Main background |
+| Text primary | `text-slate-900` | Task title |
+| Text secondary | `text-slate-600` | Task description |
+| Text disabled | `text-slate-400` | Completed task |
+| Error state | `text-red-600 bg-red-50` | Error message |
+| Success state | `text-indigo-700` | Active filter |
+
+#### Spacing System
+
+```text
+Micro:   pt-1, pb-1, px-2    (4px vertical, 8px horizontal)
+Small:   pt-2, pb-2, px-3    (8px vertical, 12px horizontal)
+Medium:  pt-3, pb-3, px-4    (12px vertical, 16px horizontal)
+Large:   pt-4, pb-4, px-5    (16px vertical, 20px horizontal)
+XLarge:  pt-5, pb-5, px-6    (20px vertical, 24px horizontal)
+```
+
+#### Component Patterns
+
+##### Card Component
+```svelte
+<!-- ✅ Good pattern -->
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <slot />
+</section>
+
+<!-- ❌ Avoid -->
+<div class="border rounded p-4">
+  <!-- Missing specific classes -->
+</div>
+```
+
+##### Button Component
+```svelte
+<!-- ✅ Primary button -->
+<button
+  class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white 
+         shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed 
+         disabled:bg-slate-300"
+>
+  <slot />
+</button>
+
+<!-- ✅ Secondary button -->
+<button
+  class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium 
+         text-slate-700 hover:bg-slate-50"
+>
+  <slot />
+</button>
+```
+
+##### Input Component
+```svelte
+<!-- ✅ Good pattern -->
+<input
+  class="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm 
+         placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 
+         focus:ring-indigo-500 focus:outline-none"
+  type="text"
+  {bind:value}
+  placeholder="Enter text..."
+/>
+
+<!-- ❌ Avoid -->
+<input class="border p-2" />
+```
+
+#### Responsive Design
+
+Use Tailwind's responsive prefixes:
+
+```svelte
+<!-- ✅ Good - responsive container -->
+<main class="mx-auto max-w-2xl px-4 py-10 sm:py-16">
+  <!-- Content -->
+</main>
+
+<!-- ✅ Good - responsive typography -->
+<h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+  Title
+</h1>
+
+<!-- ✅ Good - responsive layout -->
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+  <!-- Items -->
+</div>
+```
+
+#### Accessibility Checklist
+
+- [ ] All interactive elements have visible text or `aria-label`
+- [ ] All images have `alt` text
+- [ ] Form inputs have associated labels
+- [ ] Focus states are visible (use `focus:ring-*`)
+- [ ] Color is not the only status indicator
+- [ ] Keyboard navigation works
+- [ ] Screen reader announcements for dynamic content
+
+#### Common UI Tasks
+
+##### Adding a new component
+1. Create file in `web/src/lib/components/`
+2. Use PascalCase naming (e.g., `NewComponent.svelte`)
+3. Add TypeScript interface for props
+4. Use `$props()` for prop access
+5. Use `$state` for local state
+6. Use `$derived` for computed values
+7. Style with Tailwind utility classes
+
+##### Modifying existing component
+1. Review existing styling patterns
+2. Use same color palette
+3. Use same spacing system
+4. Maintain accessibility features
+5. Test responsive behavior
+
+##### Creating a new page
+1. Add file to `web/src/routes/`
+2. Use `+page.svelte` for page content
+3. Use `+layout.svelte` for shared layout
+4. Import and use existing components
+5. Follow existing page structure
+
+---
+
 *Last updated: 2026-04-29*

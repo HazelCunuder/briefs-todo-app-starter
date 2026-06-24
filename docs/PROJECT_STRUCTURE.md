@@ -158,4 +158,48 @@ todo-app/
 
 ---
 
+## 🤖 AI Agent Context
+
+### Navigation Guide for AI Agents
+
+When working on this project, AI agents should use this file as a primary reference for understanding the codebase organization. The structure follows a clean separation of concerns:
+
+1. **API Layer** (`api/`) - All backend logic, database interactions, and REST endpoints
+2. **Web Layer** (`web/`) - All frontend logic, UI components, and client-side state
+3. **Documentation** (`docs/`) - All project documentation and reference materials
+
+### Common File Patterns
+
+| Pattern | Location | Example |
+|---------|----------|---------|
+| API routes | `api/main.py` | `@app.get("/todos")` |
+| Database models | `api/models.py` | `class Todo(Base)` |
+| Pydantic schemas | `api/schemas.py` | `class TodoCreate(BaseModel)` |
+| CRUD operations | `api/crud.py` | `def get_todos(db: Session)` |
+| Svelte pages | `web/src/routes/+page.svelte` | Main task list |
+| Svelte components | `web/src/lib/components/` | `TodoItem.svelte` |
+| TypeScript types | `web/src/lib/types.ts` | `interface Todo` |
+| API client | `web/src/lib/api.ts` | Typed fetch wrapper |
+
+### Dependency Flow
+
+```text
+Svelte Components → API Client → FastAPI Routes → CRUD Functions → SQLAlchemy Models → Database
+```
+
+Each layer depends only on the layer below it, maintaining a clean architecture.
+
+### Quick File Lookup
+
+| Need | File to Check |
+|------|---------------|
+| Add new API endpoint | `api/main.py`, `api/schemas.py`, `api/crud.py` |
+| Add new UI component | `web/src/lib/components/`, `web/src/lib/types.ts` |
+| Modify database schema | `api/models.py`, `api/database.py` |
+| Update styling | `web/src/app.css`, `web/src/routes/+page.svelte` |
+| Add new page | `web/src/routes/` |
+| Configure Docker | `docker-compose.yml`, `api/Dockerfile`, `web/Dockerfile` |
+
+---
+
 *Last updated: 2026-04-29*
