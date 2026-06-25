@@ -1,0 +1,37 @@
+# Cucumber (Behave) dependencies for Spec Driven Development
+# BDD framework for human-readable specifications
+
+# Core behave package
+behave>=1.2.6
+
+# HTTP client for API testing
+httpx>=0.27.0
+requests>=2.31.0
+
+# Database testing
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# Test fixtures and utilities
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+
+# Date/time handling
+python-dateutil>=2.9.0
+pytz>=2024.1
+
+# Data validation
+pydantic>=2.0.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Type hints
+typing-extensions>=4.12.0
+
+# Parse type hints
+parse>=1.20.0
+
+# For table parsing in feature files
+behave-django>=1.2.0  # Optional, for Django integration
+parse_type>=0.6.0
